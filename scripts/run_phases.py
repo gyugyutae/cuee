@@ -11,7 +11,10 @@ Usage:
 
 Environment:
     CODEX_BIN     Path to codex CLI (default: "codex" from PATH)
-    CODEX_MODEL   Model to pass to `codex exec --model` (default: gpt-5-codex)
+    CODEX_MODEL   Optional model to pass to `codex exec --model`
+    CODEX_PERMISSION_FLAGS
+                  Permission flags passed to `codex exec`
+                  (default: --dangerously-bypass-approvals-and-sandbox)
     PHASE_TIMEOUT Per-phase timeout in seconds (default: 1800)
     SKIP_GIT      If "1", do not attempt git commits or baseline tracking
 """
@@ -21,6 +24,7 @@ from __future__ import annotations
 import itertools
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -54,7 +58,11 @@ def default_codex_bin() -> str:
 
 
 CODEX_BIN = default_codex_bin()
-CODEX_MODEL = os.environ.get("CODEX_MODEL", "gpt-5-codex")
+CODEX_MODEL = os.environ.get("CODEX_MODEL")
+CODEX_PERMISSION_FLAGS = shlex.split(os.environ.get(
+    "CODEX_PERMISSION_FLAGS",
+    "--dangerously-bypass-approvals-and-sandbox",
+))
 PHASE_TIMEOUT = int(os.environ.get("PHASE_TIMEOUT", "1800"))
 SKIP_GIT = os.environ.get("SKIP_GIT", "0") == "1"
 
@@ -148,11 +156,14 @@ def run_codex(full_prompt: str, last_msg_path: Path) -> subprocess.CompletedProc
         CODEX_BIN,
         "exec",
         "--skip-git-repo-check",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--model", CODEX_MODEL,
+        *CODEX_PERMISSION_FLAGS,
+    ]
+    if CODEX_MODEL:
+        cmd.extend(["--model", CODEX_MODEL])
+    cmd.extend([
         "--output-last-message", str(last_msg_path),
         full_prompt,
-    ]
+    ])
     return subprocess.run(
         cmd,
         cwd=str(ROOT),
@@ -352,7 +363,7 @@ def main() -> None:
     pending_count = sum(1 for p in index["phases"] if p["status"] == "pending")
 
     print(f"\n{'=' * 60}")
-    print(f"  Phase Runner ({CODEX_BIN}, model={CODEX_MODEL})")
+    print(f"  Phase Runner ({CODEX_BIN}, model={CODEX_MODEL or 'default'})")
     print(f"  Task: {task_name} | Phases: {total_phases} | Pending: {pending_count}")
     print(f"{'=' * 60}")
 
