@@ -27,10 +27,17 @@ class AndroidSpeechController(
     private var listening = false
 
     override fun startListening(localeTag: String) {
+        if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
+            onError(SpeechError.UNAVAILABLE)
+            return
+        }
         val normalizedLocaleTag = SpeechController.KO_KR
-        val recognizer = speechRecognizer ?: SpeechRecognizer.createSpeechRecognizer(appContext).also {
+        val recognizer = speechRecognizer ?: runCatching { SpeechRecognizer.createSpeechRecognizer(appContext) }.getOrNull()?.also {
             it.setRecognitionListener(listener)
             speechRecognizer = it
+        } ?: run {
+            onError(SpeechError.UNAVAILABLE)
+            return
         }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -39,7 +46,12 @@ class AndroidSpeechController(
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
         }
         listening = true
-        recognizer.startListening(intent)
+        runCatching {
+            recognizer.startListening(intent)
+        }.onFailure {
+            listening = false
+            onError(SpeechError.UNAVAILABLE)
+        }
     }
 
     override fun stopListening() {

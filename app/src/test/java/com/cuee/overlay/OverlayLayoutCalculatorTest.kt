@@ -45,4 +45,15 @@ class OverlayLayoutCalculatorTest {
 
         assertEquals(listOf(Bounds(16, 16, 62, 44)), layout.holes)
     }
+
+    @Test
+    fun emptyCandidatesMaskWholeScreen() {
+        val calculator = OverlayLayoutCalculator(candidatePaddingPx = 0)
+        val screen = Bounds(0, 0, 100, 100)
+
+        val layout = calculator.calculate(screen = screen, candidates = emptyList())
+
+        assertEquals(emptyList<Bounds>(), layout.holes)
+        assertEquals(listOf(screen), layout.maskRects)
+    }
 }

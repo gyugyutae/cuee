@@ -67,6 +67,24 @@ class KorailTargetScorerTest {
         assertTrue(candidates.first().score < 65)
     }
 
+    @Test
+    fun excludesEditableFieldsFromTargets() {
+        val candidates = scorer.score(
+            snapshot(
+                node(
+                    id = "editable",
+                    text = "승차권 예매",
+                    clickable = true,
+                    className = "android.widget.EditText",
+                    editable = true
+                )
+            ),
+            KorailCommand.FIND_RESERVATION_START
+        )
+
+        assertTrue(candidates.isEmpty())
+    }
+
     private fun snapshot(vararg nodes: ScreenNode): ScreenSnapshot {
         return ScreenSnapshot(
             packageName = "com.korail.talk",
@@ -81,7 +99,8 @@ class KorailTargetScorerTest {
         contentDescription: String? = null,
         clickable: Boolean,
         className: String?,
-        bounds: Bounds = Bounds(0, 0, 180, 64)
+        bounds: Bounds = Bounds(0, 0, 180, 64),
+        editable: Boolean = false
     ): ScreenNode {
         return ScreenNode(
             id = id,
@@ -94,7 +113,7 @@ class KorailTargetScorerTest {
             enabled = true,
             visible = true,
             scrollable = false,
-            editable = false,
+            editable = editable,
             depth = 0,
             parentHint = null
         )

@@ -5,7 +5,7 @@
 - 코레일톡 단일 앱만 지원한다.
 - Kotlin Android Native 단일 모듈.
 - 실제 코레일톡 위 `AccessibilityService` + `TYPE_ACCESSIBILITY_OVERLAY`.
-- AI API, 자동 클릭, 자동 예매, 로그인, 결제, 인증, 예매 확정 없음.
+- AI API, 대신 누르기, 자동 예매, 로그인, 결제, 인증, 예매 확정 없음.
 - 빠른 안내보다 정확한 안내가 우선.
 - Android service는 얇게, 판단 로직은 unit test 가능한 domain layer에 둔다.
 

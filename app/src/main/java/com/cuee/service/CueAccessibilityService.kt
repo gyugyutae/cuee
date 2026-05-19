@@ -7,7 +7,13 @@ import android.view.accessibility.AccessibilityEvent
 import com.cuee.accessibility.AccessibilitySnapshotMapper
 import com.cuee.accessibility.DefaultAccessibilitySnapshotMapper
 import com.cuee.data.DataStoreSettingsRepository
+import com.cuee.data.LocalUtMetricRepository
+import com.cuee.data.UtMetric
+import com.cuee.data.UtMetricRepository
+import com.cuee.data.UtResult
+import com.cuee.data.UtTaskType
 import com.cuee.domain.command.DefaultKorailCommandParser
+import com.cuee.domain.command.KorailCommand
 import com.cuee.domain.command.KorailCommandParser
 import com.cuee.domain.safety.DefaultSafetyPolicy
 import com.cuee.domain.safety.StopReason
@@ -37,6 +43,7 @@ class CueAccessibilityService : AccessibilityService() {
     private val job = SupervisorJob()
     private val scope = CoroutineScope(job + Dispatchers.Main)
     private lateinit var settingsRepository: DataStoreSettingsRepository
+    private lateinit var metricRepository: UtMetricRepository
     private lateinit var bubble: BubbleOverlayController
     private lateinit var maskOverlay: MaskOverlayController
     private lateinit var highlighter: CandidateHighlighter
@@ -49,10 +56,12 @@ class CueAccessibilityService : AccessibilityService() {
     private var currentState: GuideState = GuideState.IDLE
     private var awaitingGuidedTap = false
     private var guidanceTimeoutJob: Job? = null
+    private var runningMetric: RunningUtMetric? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         settingsRepository = DataStoreSettingsRepository(applicationContext)
+        metricRepository = LocalUtMetricRepository(applicationContext)
         val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         commandParser = DefaultKorailCommandParser()
         snapshotMapper = DefaultAccessibilitySnapshotMapper()
@@ -161,6 +170,7 @@ class CueAccessibilityService : AccessibilityService() {
         }
 
         guideSession.begin(command)
+        beginMetric(command)
         analyzeCurrentScreen()
     }
 
@@ -204,6 +214,7 @@ class CueAccessibilityService : AccessibilityService() {
         hideGuideOverlay()
         awaitingGuidedTap = false
         ttsController.speak(instruction?.spokenPrompt.toMessage(result.stopReason))
+        result.stopReason?.let { finishMetric(it, result.stepCount) }
     }
 
     private fun scheduleGuidanceTimeout(timeoutMs: Long) {
@@ -223,6 +234,7 @@ class CueAccessibilityService : AccessibilityService() {
         hideGuideOverlay()
         awaitingGuidedTap = false
         currentState = GuideState.IDLE
+        finishMetric(reason, guideSessionStepCountOrZero())
         if (speak && ::ttsController.isInitialized) {
             ttsController.speak(reason.toMessage())
         }
@@ -267,6 +279,63 @@ class CueAccessibilityService : AccessibilityService() {
             StopReason.USER_CANCELLED -> ""
         }
     }
+
+    private fun beginMetric(command: KorailCommand) {
+        runningMetric = RunningUtMetric(
+            sessionId = System.currentTimeMillis().toString(),
+            taskType = command.toUtTaskType(),
+            startedAt = System.currentTimeMillis()
+        )
+    }
+
+    private fun finishMetric(reason: StopReason, stepCount: Int) {
+        val metric = runningMetric ?: return
+        runningMetric = null
+        val finishedAt = System.currentTimeMillis()
+        scope.launch {
+            metricRepository.append(
+                UtMetric(
+                    sessionId = metric.sessionId,
+                    taskType = metric.taskType,
+                    startedAt = metric.startedAt,
+                    finishedAt = finishedAt,
+                    elapsedMs = (finishedAt - metric.startedAt).coerceAtLeast(0L),
+                    result = reason.toUtResult(),
+                    stopReason = reason,
+                    stepCount = stepCount.coerceAtLeast(0)
+                )
+            )
+        }
+    }
+
+    private fun guideSessionStepCountOrZero(): Int {
+        return if (::guideSession.isInitialized) guideSession.stepCount else 0
+    }
+
+    private fun KorailCommand.toUtTaskType(): UtTaskType {
+        return when (this) {
+            KorailCommand.SHOW_MY_TICKET -> UtTaskType.SHOW_MY_TICKET
+            KorailCommand.FIND_RESERVATION_START -> UtTaskType.FIND_RESERVATION_START
+        }
+    }
+
+    private fun StopReason.toUtResult(): UtResult {
+        return when (this) {
+            StopReason.USER_CANCELLED -> UtResult.CANCELLED
+            StopReason.SENSITIVE_LOGIN,
+            StopReason.SENSITIVE_PERSONAL_INFO,
+            StopReason.SENSITIVE_PAYMENT,
+            StopReason.SENSITIVE_AUTH_CODE,
+            StopReason.SENSITIVE_CONFIRMATION -> UtResult.SENSITIVE_PAUSE
+            else -> UtResult.FAILED
+        }
+    }
+
+    private data class RunningUtMetric(
+        val sessionId: String,
+        val taskType: UtTaskType,
+        val startedAt: Long
+    )
 
     private companion object {
         const val KORAIL_PACKAGE = "com.korail.talk"

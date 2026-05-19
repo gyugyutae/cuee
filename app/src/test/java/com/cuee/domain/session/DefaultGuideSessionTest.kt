@@ -42,6 +42,30 @@ class DefaultGuideSessionTest {
         assertEquals(SpokenPrompt.CHECK_DIRECTLY, result.instruction?.spokenPrompt)
     }
 
+    @Test
+    fun failsSafelyWhenNextRunsBeforeBegin() {
+        val session = DefaultGuideSession(clock = { 1L })
+
+        val result = session.next(snapshot(nodeId = "reservation", text = "승차권 예매"))
+
+        assertEquals(GuideState.FAILED, result.state)
+        assertEquals(StopReason.NO_TARGET, result.stopReason)
+        assertEquals(0, result.stepCount)
+        assertEquals(SpokenPrompt.TRY_AGAIN, result.instruction?.spokenPrompt)
+    }
+
+    @Test
+    fun userCancelReturnsSessionToIdle() {
+        val session = DefaultGuideSession(clock = { 1L })
+        session.begin(KorailCommand.FIND_RESERVATION_START)
+        assertEquals(GuideState.THINKING, session.state)
+
+        session.stop(StopReason.USER_CANCELLED)
+
+        assertEquals(GuideState.IDLE, session.state)
+        assertEquals(0, session.stepCount)
+    }
+
     private fun snapshot(nodeId: String, text: String): ScreenSnapshot {
         return ScreenSnapshot(
             packageName = "com.korail.talk",
