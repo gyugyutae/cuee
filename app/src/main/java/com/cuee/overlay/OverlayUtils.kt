@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.Gravity
 import android.view.WindowManager
+import com.cuee.domain.scoring.Bounds
 
 const val CUE_GREEN = 0xFF2F9E44.toInt()
 
@@ -54,3 +55,5 @@ fun WindowManager.screenBounds(): Rect {
         android.util.DisplayMetrics().also { defaultDisplay.getRealMetrics(it) }.let { Rect(0, 0, it.widthPixels, it.heightPixels) }
     }
 }
+
+fun Rect.toBounds(): Bounds = Bounds(left, top, right, bottom)
