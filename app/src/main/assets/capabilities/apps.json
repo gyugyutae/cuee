@@ -1,78 +1,27 @@
 [
   {
-    "app": "COUPANG",
-    "packageNames": ["com.coupang.mobile"],
-    "displayName": "쿠팡",
-    "supportedActions": [
-      {
-        "id": "COUPANG_SEARCH",
-        "triggerKeywords": ["찾아줘", "검색", "사고 싶어", "사려고", "필요해", "주문하고 싶어"],
-        "targetSequence": ["SEARCH_FIELD", "SEARCH_BUTTON"],
-        "autoInputPolicy": "SEARCH_QUERY_ONLY",
-        "stopPolicy": "STOP_AFTER_TARGET_CLICK",
-        "maxSteps": 5
-      },
-      {
-        "id": "COUPANG_CART",
-        "triggerKeywords": ["장바구니", "카트", "담은 거"],
-        "targetSequence": ["CART_BUTTON"],
-        "autoInputPolicy": "NONE",
-        "stopPolicy": "STOP_AFTER_TARGET_CLICK",
-        "maxSteps": 1
-      }
-    ],
-    "blockedKeywords": ["결제", "결제하기", "주문하기", "구매확정", "바로구매", "송금", "이체"],
-    "sensitiveKeywords": ["카드", "계좌", "비밀번호", "인증번호", "주소", "전화번호", "배송지"]
-  },
-  {
-    "app": "KAKAO",
-    "packageNames": ["com.kakao.talk"],
-    "displayName": "카카오톡",
-    "supportedActions": [
-      {
-        "id": "KAKAO_COMPOSE_MESSAGE",
-        "triggerKeywords": ["한테", "에게", "보내", "말해", "카톡"],
-        "targetSequence": ["MESSAGE_INPUT"],
-        "autoInputPolicy": "KAKAO_MESSAGE_ONLY",
-        "stopPolicy": "STOP_AFTER_AUTO_INPUT",
-        "maxSteps": 5
-      },
-      {
-        "id": "KAKAO_PHOTO_ENTRY",
-        "triggerKeywords": ["사진", "앨범", "이미지", "카메라"],
-        "targetSequence": ["PHOTO_BUTTON"],
-        "autoInputPolicy": "NONE",
-        "stopPolicy": "STOP_AFTER_TARGET_CLICK",
-        "maxSteps": 1
-      }
-    ],
-    "blockedKeywords": ["보내기", "송금", "이체", "결제"],
-    "sensitiveKeywords": ["비밀번호", "인증번호", "계좌", "카드"]
-  },
-  {
     "app": "KORAIL",
     "packageNames": ["com.korail.talk"],
     "displayName": "코레일톡",
     "supportedActions": [
       {
         "id": "KORAIL_MY_TICKET",
-        "triggerKeywords": ["예매한 표", "표 확인", "승차권 확인", "기차표 확인"],
-        "targetSequence": ["MY_TICKET_BUTTON"],
+        "triggerKeywords": ["예매한 표", "내 표", "표 확인", "승차권 확인"],
+        "targetSequence": ["MY_TICKET_ENTRY"],
         "autoInputPolicy": "NONE",
         "stopPolicy": "STOP_AFTER_TARGET_CLICK",
-        "maxSteps": 1
+        "maxSteps": 3
       },
       {
-        "id": "KORAIL_TICKET_ENTRY",
-        "triggerKeywords": ["승차권 예매", "기차 예매", "표 예매"],
-        "targetSequence": ["TICKET_RESERVATION_BUTTON"],
+        "id": "KORAIL_RESERVATION_START",
+        "triggerKeywords": ["승차권 예매", "기차표 예매", "예매 시작"],
+        "targetSequence": ["RESERVATION_ENTRY"],
         "autoInputPolicy": "NONE",
         "stopPolicy": "STOP_AFTER_TARGET_CLICK",
-        "maxSteps": 1
+        "maxSteps": 3
       }
     ],
-    "blockedKeywords": ["결제", "발권", "예매 완료", "카드", "계좌"],
+    "blockedKeywords": ["로그인", "결제", "인증", "예매 완료", "발권"],
     "sensitiveKeywords": ["비밀번호", "인증번호", "카드", "계좌", "생년월일"]
   }
 ]
-

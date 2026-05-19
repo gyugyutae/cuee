@@ -4,8 +4,6 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
-        <package android:name="com.coupang.mobile" />
-        <package android:name="com.kakao.talk" />
         <package android:name="com.korail.talk" />
     </queries>
 
@@ -41,4 +39,3 @@
     </application>
 
 </manifest>
-

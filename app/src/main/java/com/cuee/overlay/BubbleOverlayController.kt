@@ -6,7 +6,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.TextView
-import com.cuee.data.BubbleSide
+import com.cuee.data.BubbleEdge
 import kotlin.math.abs
 
 class BubbleOverlayController(
@@ -14,7 +14,7 @@ class BubbleOverlayController(
     private val windowManager: WindowManager,
     private val onTap: () -> Unit,
     private val onDismissed: () -> Unit,
-    private val onPositionSaved: (BubbleSide, Float) -> Unit
+    private val onPositionSaved: (BubbleEdge, Float) -> Unit
 ) {
     private var bubble: TextView? = null
     private var params: WindowManager.LayoutParams? = null
@@ -25,7 +25,7 @@ class BubbleOverlayController(
     private var downY = 0
     private var dragging = false
 
-    fun show(side: BubbleSide = BubbleSide.RIGHT, yRatio: Float = 0.55f) {
+    fun show(side: BubbleEdge = BubbleEdge.RIGHT, yRatio: Float = 0.55f) {
         bubble?.let { existing ->
             params?.let { existingParams ->
                 if (runCatching { windowManager.updateViewLayout(existing, existingParams) }.isSuccess) return
@@ -35,7 +35,7 @@ class BubbleOverlayController(
         }
         val screen = windowManager.screenBounds()
         val size = context.dp(60)
-        val x = if (side == BubbleSide.LEFT) 0 else screen.width() - size
+        val x = if (side == BubbleEdge.LEFT) 0 else screen.width() - size
         val y = ((screen.height() - size) * yRatio).toInt().coerceIn(context.dp(48), screen.height() - size - context.dp(48))
         val view = TextView(context).apply {
             text = "큐"
@@ -107,8 +107,8 @@ class BubbleOverlayController(
         val lp = params ?: return
         val screen = windowManager.screenBounds()
         val size = context.dp(60)
-        val side = if (lp.x + size / 2 < screen.width() / 2) BubbleSide.LEFT else BubbleSide.RIGHT
-        lp.x = if (side == BubbleSide.LEFT) 0 else screen.width() - size
+        val side = if (lp.x + size / 2 < screen.width() / 2) BubbleEdge.LEFT else BubbleEdge.RIGHT
+        lp.x = if (side == BubbleEdge.LEFT) 0 else screen.width() - size
         bubble?.animate()?.x(lp.x.toFloat())?.setDuration(160)?.start()
         bubble?.let { windowManager.updateViewLayout(it, lp) }
         val yRatio = lp.y.toFloat() / (screen.height() - size).coerceAtLeast(1)
