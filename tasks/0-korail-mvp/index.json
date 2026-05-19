@@ -9,7 +9,8 @@
       "phase": 0,
       "name": "docs-baseline",
       "status": "completed",
-      "started_at": "2026-05-20T00:50:36+0900"
+      "started_at": "2026-05-20T00:50:36+0900",
+      "completed_at": "2026-05-20T00:51:45+0900"
     },
     {
       "phase": 1,
