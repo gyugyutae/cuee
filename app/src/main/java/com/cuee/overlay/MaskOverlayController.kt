@@ -17,7 +17,7 @@ class MaskOverlayController(
         candidatePaddingPx = context.dp(CANDIDATE_PADDING_DP)
     )
 ) {
-    private val maskViews = mutableListOf<View>()
+    private var maskView: View? = null
     private var closeView: View? = null
 
     fun show(instruction: OverlayInstruction) {
@@ -29,28 +29,25 @@ class MaskOverlayController(
         val screen = windowManager.screenBounds().toBounds()
         val layout = layoutCalculator.calculate(screen, visibleHoles)
 
-        layout.maskRects.forEach { rect ->
-            if (!rect.isValid()) return@forEach
-            val block = View(context).apply { setBackgroundColor(Color.WHITE) }
-            maskViews += block
-            windowManager.addView(
-                block,
-                overlayParams(
-                    width = rect.width,
-                    height = rect.height,
-                    x = rect.left,
-                    y = rect.top,
-                    touchable = true
-                )
-            )
+        val view = MaskView(context).apply {
+            update(layout.maskRects)
         }
+        maskView = view
+        windowManager.addView(
+            view,
+            overlayParams(
+                width = screen.width,
+                height = screen.height,
+                touchable = false
+            )
+        )
 
         showClose(screen, layout.holes)
     }
 
     fun hide() {
-        maskViews.forEach { runCatching { windowManager.removeView(it) } }
-        maskViews.clear()
+        maskView?.let { runCatching { windowManager.removeView(it) } }
+        maskView = null
         closeView?.let { runCatching { windowManager.removeView(it) } }
         closeView = null
     }
@@ -111,8 +108,34 @@ class MaskOverlayController(
         }
     }
 
+    private class MaskView(context: Context) : View(context) {
+        private var maskRects: List<Bounds> = emptyList()
+        private val paint = Paint().apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+        }
+
+        fun update(maskRects: List<Bounds>) {
+            this.maskRects = maskRects
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            maskRects.forEach { rect ->
+                canvas.drawRect(
+                    rect.left.toFloat(),
+                    rect.top.toFloat(),
+                    rect.right.toFloat(),
+                    rect.bottom.toFloat(),
+                    paint
+                )
+            }
+        }
+    }
+
     private companion object {
-        const val CANDIDATE_PADDING_DP = 6
+        const val CANDIDATE_PADDING_DP = 72
         const val CLOSE_SIZE_DP = 48
         const val CLOSE_MARGIN_DP = 16
     }

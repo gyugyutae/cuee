@@ -9,12 +9,12 @@ class ClusterCandidateResolverTest {
     private val resolver = ClusterCandidateResolver()
 
     @Test
-    fun filtersBelowWeakThresholdAndLimitsToThree() {
+    fun filtersBelowWeakThresholdAndLimitsCloseCandidatesToThree() {
         val resolved = resolver.resolve(
             listOf(
                 candidate("a", Bounds(0, 0, 100, 60), 95),
-                candidate("b", Bounds(120, 0, 220, 60), 85),
-                candidate("c", Bounds(240, 0, 340, 60), 75),
+                candidate("b", Bounds(120, 0, 220, 60), 90),
+                candidate("c", Bounds(240, 0, 340, 60), 85),
                 candidate("d", Bounds(360, 0, 460, 60), 70),
                 candidate("low", Bounds(480, 0, 580, 60), 64)
             )
@@ -33,7 +33,7 @@ class ClusterCandidateResolverTest {
             )
         )
 
-        assertEquals(2, resolved.size)
+        assertEquals(1, resolved.size)
         assertTrue(resolved.any { it.nodeId == "higher" })
         assertTrue(resolved.none { it.nodeId == "lower" })
     }

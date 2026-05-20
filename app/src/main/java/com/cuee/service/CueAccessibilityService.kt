@@ -2,6 +2,11 @@ package com.cuee.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.BroadcastReceiver
+import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import com.cuee.accessibility.AccessibilitySnapshotMapper
@@ -57,6 +62,7 @@ class CueAccessibilityService : AccessibilityService() {
     private var awaitingGuidedTap = false
     private var guidanceTimeoutJob: Job? = null
     private var runningMetric: RunningUtMetric? = null
+    private var debugReceiver: BroadcastReceiver? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -103,10 +109,14 @@ class CueAccessibilityService : AccessibilityService() {
                 }
             }
         }
+        registerDebugReceiver()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        currentPackageName = event?.packageName?.toString()
+        val eventPackageName = event?.packageName?.toString()
+        if (eventPackageName != packageName) {
+            currentPackageName = eventPackageName
+        }
         if (!::bubble.isInitialized || !::settingsRepository.isInitialized) return
 
         val eventType = event?.eventType ?: return
@@ -141,8 +151,36 @@ class CueAccessibilityService : AccessibilityService() {
         if (::bubble.isInitialized) bubble.hide()
         if (::speechController.isInitialized) speechController.destroy()
         if (::ttsController.isInitialized) ttsController.shutdown()
+        unregisterDebugReceiver()
         job.cancel()
         super.onDestroy()
+    }
+
+    private fun registerDebugReceiver() {
+        val isDebuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!isDebuggable || debugReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action != ACTION_DEBUG_COMMAND) return
+                val utterance = intent.getStringExtra(EXTRA_UTTERANCE).orEmpty()
+                if (utterance.isBlank()) return
+                currentPackageName = KORAIL_PACKAGE
+                handleSpeechResult(utterance)
+            }
+        }
+        debugReceiver = receiver
+        val filter = IntentFilter(ACTION_DEBUG_COMMAND)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(receiver, filter)
+        }
+    }
+
+    private fun unregisterDebugReceiver() {
+        debugReceiver?.let { runCatching { unregisterReceiver(it) } }
+        debugReceiver = null
     }
 
     private fun beginListeningFromBubble() {
@@ -347,5 +385,7 @@ class CueAccessibilityService : AccessibilityService() {
         const val PROMPT_CHECK_DIRECTLY = "이 화면은 직접 확인해 주세요."
         const val PROMPT_PLEASE_TAP = "초록색 테두리 안을 눌러주세요."
         const val PROMPT_TRY_AGAIN = "다시 말해 주세요."
+        const val ACTION_DEBUG_COMMAND = "com.cuee.DEBUG_COMMAND"
+        const val EXTRA_UTTERANCE = "utterance"
     }
 }

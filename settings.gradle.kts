@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Cuee"
 include(":app")
-
+include(":mock-korail")

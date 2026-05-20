@@ -63,7 +63,7 @@ class OverlayLayoutCalculator(
                 }
             }
         }
-        return mergeAdjacent(result)
+        return result.sortedWith(compareBy<Bounds> { it.top }.thenBy { it.left })
     }
 
     private fun mergeOverlapping(bounds: List<Bounds>): List<Bounds> {

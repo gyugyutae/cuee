@@ -39,13 +39,21 @@ class ClusterCandidateResolver(
             )
         }
 
-        return resolved
+        val ranked = resolved
             .sortedWith(compareByDescending<TargetCandidate> { it.score }.thenBy { it.nodeId })
-            .take(maxCandidates)
+
+        val best = ranked.firstOrNull() ?: return emptyList()
+        val closeCandidates = ranked.filter { best.score - it.score <= SCORE_TIE_MARGIN }
+        return if (closeCandidates.size == 1) {
+            listOf(best)
+        } else {
+            closeCandidates.take(maxCandidates)
+        }
     }
 
     private companion object {
         const val MINIMUM_SCORE = 65
         const val MAX_CANDIDATES = 3
+        const val SCORE_TIE_MARGIN = 15
     }
 }
