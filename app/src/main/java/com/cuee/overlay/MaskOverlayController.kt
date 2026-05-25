@@ -17,39 +17,53 @@ class MaskOverlayController(
         candidatePaddingPx = context.dp(CANDIDATE_PADDING_DP)
     )
 ) {
-    private var maskView: View? = null
+    private val maskViews = mutableListOf<View>()
     private var closeView: View? = null
+    private var lastMaskRects: List<Bounds> = emptyList()
+    private var lastCloseBounds: Bounds? = null
 
     fun show(instruction: OverlayInstruction) {
         show(instruction.visibleHoles)
     }
 
     fun show(visibleHoles: List<Bounds>) {
-        hide()
         val screen = windowManager.screenBounds().toBounds()
         val layout = layoutCalculator.calculate(screen, visibleHoles)
-
-        val view = MaskView(context).apply {
-            update(layout.maskRects)
+        if (layout.maskRects == lastMaskRects && maskViews.isNotEmpty()) {
+            showClose(screen, layout.holes)
+            return
         }
-        maskView = view
-        windowManager.addView(
-            view,
-            overlayParams(
-                width = screen.width,
-                height = screen.height,
-                touchable = false
-            )
-        )
+
+        maskViews.forEach { runCatching { windowManager.removeView(it) } }
+        maskViews.clear()
+        lastMaskRects = layout.maskRects
+        layout.maskRects
+            .filter { it.isValid() }
+            .forEach { rect ->
+                val view = View(context).apply { setBackgroundColor(Color.WHITE) }
+                maskViews += view
+                windowManager.addView(
+                    view,
+                    overlayParams(
+                        width = rect.width,
+                        height = rect.height,
+                        x = rect.left,
+                        y = rect.top,
+                        touchable = false
+                    )
+                )
+            }
 
         showClose(screen, layout.holes)
     }
 
     fun hide() {
-        maskView?.let { runCatching { windowManager.removeView(it) } }
-        maskView = null
+        maskViews.forEach { runCatching { windowManager.removeView(it) } }
+        maskViews.clear()
+        lastMaskRects = emptyList()
         closeView?.let { runCatching { windowManager.removeView(it) } }
         closeView = null
+        lastCloseBounds = null
     }
 
     private fun showClose(screen: Bounds, holes: List<Bounds>) {
@@ -65,12 +79,15 @@ class MaskOverlayController(
         val closeBounds = candidates.firstOrNull { candidate ->
             candidate.isValid() && candidate.within(screen) && holes.none { it.intersects(candidate) }
         } ?: return
+        if (closeBounds == lastCloseBounds && closeView != null) return
 
+        closeView?.let { runCatching { windowManager.removeView(it) } }
         val view = CloseButtonView(context).apply {
             setOnClickListener { onClose() }
             elevation = context.dp(12).toFloat()
         }
         closeView = view
+        lastCloseBounds = closeBounds
         windowManager.addView(
             view,
             overlayParams(
@@ -105,32 +122,6 @@ class MaskOverlayController(
             val inset = width * 0.34f
             canvas.drawLine(inset, inset, width - inset, height - inset, strokePaint)
             canvas.drawLine(width - inset, inset, inset, height - inset, strokePaint)
-        }
-    }
-
-    private class MaskView(context: Context) : View(context) {
-        private var maskRects: List<Bounds> = emptyList()
-        private val paint = Paint().apply {
-            color = Color.WHITE
-            style = Paint.Style.FILL
-        }
-
-        fun update(maskRects: List<Bounds>) {
-            this.maskRects = maskRects
-            invalidate()
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            maskRects.forEach { rect ->
-                canvas.drawRect(
-                    rect.left.toFloat(),
-                    rect.top.toFloat(),
-                    rect.right.toFloat(),
-                    rect.bottom.toFloat(),
-                    paint
-                )
-            }
         }
     }
 

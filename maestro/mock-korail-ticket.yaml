@@ -1,0 +1,13 @@
+appId: com.korail.talk
+---
+- launchApp
+- assertVisible: "승차권 확인"
+- tapOn: "승차권 확인"
+- assertVisible: "승차권 확인"
+- assertVisible: "오늘의 승차권"
+- assertVisible: "승차권 상세보기"
+- tapOn: "승차권 상세보기"
+- assertVisible: "승차권"
+- assertVisible: "직접 확인이 필요한 화면"
+- assertVisible: "KTX 123"
+- assertVisible: "확인"

@@ -7,8 +7,13 @@ import android.content.IntentFilter
 import android.content.BroadcastReceiver
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import android.os.Bundle
+import android.util.Log
+import android.graphics.Path
+import android.accessibilityservice.GestureDescription
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.cuee.accessibility.AccessibilitySnapshotMapper
 import com.cuee.accessibility.DefaultAccessibilitySnapshotMapper
 import com.cuee.data.DataStoreSettingsRepository
@@ -20,14 +25,21 @@ import com.cuee.data.UtTaskType
 import com.cuee.domain.command.DefaultKorailCommandParser
 import com.cuee.domain.command.KorailCommand
 import com.cuee.domain.command.KorailCommandParser
+import com.cuee.domain.demo.DemoBookingPlan
+import com.cuee.domain.demo.DemoGuideResult
+import com.cuee.domain.demo.DemoSession
+import com.cuee.domain.demo.DemoStep
+import com.cuee.domain.demo.DemoTargetPlanner
 import com.cuee.domain.safety.DefaultSafetyPolicy
 import com.cuee.domain.safety.StopReason
 import com.cuee.domain.scoring.ClusterCandidateResolver
+import com.cuee.domain.scoring.ScreenSnapshot
 import com.cuee.domain.scoring.KorailTargetScorer
 import com.cuee.domain.session.DefaultGuideSession
 import com.cuee.domain.session.GuideSession
 import com.cuee.domain.session.GuideState
 import com.cuee.domain.session.GuideStepResult
+import com.cuee.domain.session.OverlayInstruction
 import com.cuee.domain.session.SpokenPrompt
 import com.cuee.overlay.BubbleOverlayController
 import com.cuee.overlay.CandidateHighlighter
@@ -57,12 +69,18 @@ class CueAccessibilityService : AccessibilityService() {
     private lateinit var commandParser: KorailCommandParser
     private lateinit var snapshotMapper: AccessibilitySnapshotMapper
     private lateinit var guideSession: GuideSession
+    private val demoTargetPlanner = DemoTargetPlanner()
     private var currentPackageName: String? = null
     private var currentState: GuideState = GuideState.IDLE
     private var awaitingGuidedTap = false
     private var guidanceTimeoutJob: Job? = null
+    private var demoRecheckJob: Job? = null
+    private var demoPulseJob: Job? = null
     private var runningMetric: RunningUtMetric? = null
     private var debugReceiver: BroadcastReceiver? = null
+    private var demoSession: DemoSession? = null
+    private var lastDemoSpokenKey: String? = null
+    private var lastDemoPulseKey: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -114,21 +132,57 @@ class CueAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val eventPackageName = event?.packageName?.toString()
-        if (eventPackageName != packageName) {
+        if (eventPackageName == KORAIL_PACKAGE || (eventPackageName != packageName && currentState == GuideState.IDLE)) {
             currentPackageName = eventPackageName
         }
         if (!::bubble.isInitialized || !::settingsRepository.isInitialized) return
 
         val eventType = event?.eventType ?: return
         val isKorailEvent = currentPackageName == KORAIL_PACKAGE
+        val isKorailPackageEvent = eventPackageName == KORAIL_PACKAGE
 
         if (!isKorailEvent && currentState != GuideState.IDLE) {
             stopGuidance(StopReason.NOT_KORAIL_APP, speak = false)
-        } else if (currentState == GuideState.LISTENING && isKorailEvent && eventType.isUserTouchEvent()) {
+        } else if (currentState == GuideState.LISTENING && isKorailPackageEvent && eventType.isUserTouchEvent()) {
             stopGuidance(StopReason.USER_CANCELLED, speak = false)
-        } else if (currentState == GuideState.GUIDING && awaitingGuidedTap && isKorailEvent && eventType.isGuideAdvanceEvent()) {
-            awaitingGuidedTap = false
-            analyzeCurrentScreen()
+        } else if (currentState == GuideState.GUIDING && awaitingGuidedTap && isKorailPackageEvent && eventType.isGuideAdvanceEvent()) {
+            if (demoSession != null) {
+                demoSession?.let { session ->
+                    val step = session.step
+                    if (step.shouldReanalyzeWhileWaiting()) {
+                        lastDemoPulseKey = null
+                        if (step != DemoStep.SELECT_DEPARTURE_RESULT && step != DemoStep.SELECT_ARRIVAL_RESULT) {
+                            session.advance()
+                        }
+                        scheduleDemoRecheck()
+                    } else {
+                        awaitingGuidedTap = false
+                        if (step == DemoStep.SCAN_VISIBLE_RESULTS || step == DemoStep.SUGGEST_TRAIN) {
+                            session.setStep(DemoStep.FOLLOW_USER_SELECTION)
+                        } else if (step != DemoStep.FOLLOW_USER_SELECTION) {
+                            session.advance()
+                        }
+                    }
+                }
+                scope.launch {
+                    delay(DEFAULT_POST_TAP_DELAY_MS)
+                    analyzeCurrentScreen()
+                }
+            } else {
+                awaitingGuidedTap = false
+                analyzeCurrentScreen()
+            }
+        } else if (
+            currentState == GuideState.GUIDING &&
+            awaitingGuidedTap &&
+            demoSession?.step?.shouldReanalyzeOnScreenMutation() == true &&
+            isKorailPackageEvent &&
+            eventType.isDemoScreenMutationEvent()
+        ) {
+            scope.launch {
+                delay(DEFAULT_POST_TAP_DELAY_MS)
+                analyzeCurrentScreen()
+            }
         }
 
         scope.launch {
@@ -161,15 +215,24 @@ class CueAccessibilityService : AccessibilityService() {
         if (!isDebuggable || debugReceiver != null) return
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == ACTION_DEBUG_STOP) {
+                    Log.d(TAG, "debug stop received")
+                    stopGuidance(StopReason.USER_CANCELLED, speak = false)
+                    return
+                }
                 if (intent?.action != ACTION_DEBUG_COMMAND) return
                 val utterance = intent.getStringExtra(EXTRA_UTTERANCE).orEmpty()
                 if (utterance.isBlank()) return
+                Log.d(TAG, "debug command received: $utterance")
                 currentPackageName = KORAIL_PACKAGE
                 handleSpeechResult(utterance)
             }
         }
         debugReceiver = receiver
-        val filter = IntentFilter(ACTION_DEBUG_COMMAND)
+        val filter = IntentFilter().apply {
+            addAction(ACTION_DEBUG_COMMAND)
+            addAction(ACTION_DEBUG_STOP)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         } else {
@@ -187,9 +250,10 @@ class CueAccessibilityService : AccessibilityService() {
         if (currentPackageName != KORAIL_PACKAGE) return
         hideGuideOverlay()
         guidanceTimeoutJob?.cancel()
+        demoRecheckJob?.cancel()
         currentState = GuideState.LISTENING
         awaitingGuidedTap = false
-        ttsController.speak(PROMPT_LISTENING)
+        bubble.setListening(true)
         speechController.startListening(SpeechController.KO_KR)
     }
 
@@ -200,20 +264,33 @@ class CueAccessibilityService : AccessibilityService() {
         }
 
         currentState = GuideState.THINKING
+        if (::bubble.isInitialized) bubble.setListening(false)
         val command = commandParser.parse(utterance)
         if (command == null) {
+            Log.d(TAG, "unsupported command: $utterance")
             currentState = GuideState.FAILED
             ttsController.speak(PROMPT_UNSUPPORTED_COMMAND)
             return
         }
 
-        guideSession.begin(command)
+        Log.d(TAG, "command parsed: $command")
+        if (command == KorailCommand.DEMO_JINJU_TO_SEOUL) {
+            demoSession = DemoSession(plan = DemoBookingPlan())
+            lastDemoSpokenKey = null
+            lastDemoPulseKey = null
+        } else {
+            demoSession = null
+            lastDemoSpokenKey = null
+            lastDemoPulseKey = null
+            guideSession.begin(command)
+        }
         beginMetric(command)
         analyzeCurrentScreen()
     }
 
     private fun handleSpeechError(error: SpeechError) {
         if (currentState != GuideState.LISTENING) return
+        if (::bubble.isInitialized) bubble.setListening(false)
         currentState = GuideState.FAILED
         ttsController.speak(
             when (error) {
@@ -230,12 +307,128 @@ class CueAccessibilityService : AccessibilityService() {
             return
         }
 
+        val keepCurrentOverlay = currentState == GuideState.GUIDING && demoSession != null
         currentState = GuideState.THINKING
-        hideGuideOverlay()
-        val snapshot = snapshotMapper.map(rootInActiveWindow)
+        if (!keepCurrentOverlay) {
+            hideGuideOverlay()
+        }
+        val snapshot = korailSnapshotInWindows() ?: snapshotMapper.map(rootInActiveWindow)
+        val activeDemo = demoSession
+        if (activeDemo != null) {
+            analyzeDemoScreen(snapshot, activeDemo)
+            return
+        }
         val result = guideSession.next(snapshot)
+        Log.d(
+            TAG,
+            "analyzed package=${snapshot.packageName} nodes=${snapshot.nodes.size} " +
+                "state=${result.state} stop=${result.stopReason} candidates=${result.candidates.map { it.nodeId to it.score }}"
+        )
         currentState = result.state
         renderGuideResult(result)
+    }
+
+    private fun analyzeDemoScreen(snapshot: ScreenSnapshot, session: DemoSession) {
+        if (handleDemoInputStep(session)) return
+
+        val result = demoTargetPlanner.plan(snapshot, session)
+        Log.d(
+            TAG,
+            "demo analyzed step=${session.step} package=${snapshot.packageName} nodes=${snapshot.nodes.size} " +
+                "target=${result.target?.label}:${result.target?.nodeId} message=${result.message} status=${result.statusText}"
+        )
+        if (result.target == null && (session.step == DemoStep.SCAN_VISIBLE_RESULTS || session.step == DemoStep.SUGGEST_TRAIN) && session.hasNextPolicy()) {
+            session.advancePolicy()
+            session.setStep(DemoStep.SELECT_DATE_FIELD)
+            performGlobalAction(GLOBAL_ACTION_BACK)
+            scope.launch {
+                delay(POLICY_BACK_DELAY_MS)
+                analyzeCurrentScreen()
+            }
+            return
+        }
+        if (result.target == null && session.step == DemoStep.SELECT_DATE_FIELD && snapshot.isTrainResultsScreen() && session.retryCount < DEMO_POLICY_BACK_RETRY_COUNT) {
+            session.markRetry()
+            performGlobalAction(GLOBAL_ACTION_BACK)
+            scope.launch {
+                delay(POLICY_BACK_DELAY_MS)
+                analyzeCurrentScreen()
+            }
+            return
+        }
+        if (result.target == null && session.step == DemoStep.SELECT_TIME && session.retryCount < DEMO_TIME_SWIPE_RETRY_COUNT) {
+            session.markRetry()
+            performTimePickerSwipe()
+            scope.launch {
+                delay(DEFAULT_POST_TAP_DELAY_MS)
+                analyzeCurrentScreen()
+            }
+            return
+        }
+        renderDemoResult(result, session)
+    }
+
+    private fun handleDemoInputStep(session: DemoSession): Boolean {
+        val station = when (session.step) {
+            DemoStep.INPUT_DEPARTURE -> session.plan.departureStation
+            DemoStep.INPUT_ARRIVAL -> session.plan.arrivalStation
+            else -> return false
+        }
+
+        if (!setTextOnEditableNode(station)) {
+            Log.d(TAG, "demo station input failed: $station")
+            if (session.retryCount < DEMO_INPUT_RETRY_COUNT) {
+                session.markRetry()
+                scope.launch {
+                    delay(STATION_RESULT_DELAY_MS)
+                    analyzeCurrentScreen()
+                }
+                return true
+            }
+            return false
+        }
+
+        Log.d(TAG, "demo station input succeeded: $station")
+        session.advance()
+        scope.launch {
+            delay(STATION_RESULT_DELAY_MS)
+            analyzeCurrentScreen()
+        }
+        return true
+    }
+
+    private fun korailSnapshotInWindows(): ScreenSnapshot? {
+        val roots = windows
+            .mapNotNull { window -> window.root }
+            .toMutableList()
+        rootInActiveWindow?.let { roots += it }
+        return roots
+            .asSequence()
+            .filter { root -> root.packageName?.toString() == KORAIL_PACKAGE }
+            .map { root -> snapshotMapper.map(root) }
+            .maxByOrNull { snapshot -> snapshot.korailSnapshotPriority() }
+    }
+
+    private fun ScreenSnapshot.korailSnapshotPriority(): Int {
+        var score = nodes.size
+        if (nodes.any { it.id.contains("stationNameEdit", ignoreCase = true) || it.searchableText().contains("역 명") }) {
+            score += 10_000
+        }
+        if (nodes.any { it.id.contains("dateCellText", ignoreCase = true) || it.id.contains("hourPick", ignoreCase = true) }) {
+            score += 9_000
+        }
+        if (nodes.any { it.searchableText().contains("어른") && it.searchableText().contains("어린이") }) {
+            score += 8_000
+        }
+        if (nodes.any { it.id.contains("trainList", ignoreCase = true) || it.searchableText().contains("특실") || it.searchableText().contains("일반실") }) {
+            score += 7_000
+        }
+        return score
+    }
+
+    private fun com.cuee.domain.scoring.ScreenNode.searchableText(): String {
+        return listOfNotNull(text, contentDescription, id, parentHint)
+            .joinToString(separator = " ")
     }
 
     private fun renderGuideResult(result: GuideStepResult) {
@@ -255,6 +448,187 @@ class CueAccessibilityService : AccessibilityService() {
         result.stopReason?.let { finishMetric(it, result.stepCount) }
     }
 
+    private fun renderDemoResult(result: DemoGuideResult, session: DemoSession) {
+        val target = result.target
+        if (target != null) {
+            val instruction = OverlayInstruction(
+                visibleHoles = listOf(target.bounds),
+                highlightedBounds = listOf(target.bounds),
+                timeoutMs = result.timeoutMs,
+                spokenPrompt = SpokenPrompt.PLEASE_TAP
+            )
+            maskOverlay.show(instruction)
+            highlighter.show(instruction.highlightedBounds)
+            awaitingGuidedTap = !result.doneAfterRender
+            currentState = GuideState.GUIDING
+            result.message?.let { message ->
+                val spokenKey = "${session.step}:${target.nodeId}:$message"
+                if (spokenKey != lastDemoSpokenKey) {
+                    ttsController.speak(message)
+                    lastDemoSpokenKey = spokenKey
+                }
+            }
+            result.statusText?.let { Log.d(TAG, "demo status: $it") }
+
+            if (result.doneAfterRender) {
+                guidanceTimeoutJob?.cancel()
+                demoRecheckJob?.cancel()
+                guidanceTimeoutJob = scope.launch {
+                    delay(result.timeoutMs)
+                    session.stop()
+                    stopGuidance(StopReason.USER_CANCELLED, speak = false)
+                }
+            } else if (result.autoTap) {
+                awaitingGuidedTap = false
+                guidanceTimeoutJob?.cancel()
+                demoRecheckJob?.cancel()
+                hideGuideOverlay()
+                if (!performClickOnNode(target.nodeId)) {
+                    performTap(target.bounds)
+                }
+                session.advance()
+                scope.launch {
+                    delay(AUTO_TAP_POST_DELAY_MS)
+                    analyzeCurrentScreen()
+                }
+            } else {
+                if (session.step.shouldReanalyzeWhileWaiting()) {
+                    demoRecheckJob?.cancel()
+                    scheduleGuidanceTimeout(DEMO_SETUP_TIMEOUT_MS)
+                    scheduleDemoPulse("${session.step}:${target.nodeId}:${target.bounds}")
+                } else {
+                    scheduleGuidanceTimeout(result.timeoutMs)
+                    demoRecheckJob?.cancel()
+                }
+            }
+            return
+        }
+
+        hideGuideOverlay()
+        awaitingGuidedTap = false
+        if (result.advanceOnRender) {
+            session.advance()
+            currentState = GuideState.THINKING
+            scope.launch {
+                delay(DEFAULT_POST_TAP_DELAY_MS)
+                analyzeCurrentScreen()
+            }
+            return
+        }
+        currentState = GuideState.FAILED
+        result.message?.let { ttsController.speak(it) }
+        result.statusText?.let { Log.d(TAG, "demo status: $it") }
+        session.stop()
+        lastDemoSpokenKey = null
+        lastDemoPulseKey = null
+        finishMetric(StopReason.NO_TARGET, 0)
+    }
+
+    private fun DemoStep.shouldReanalyzeWhileWaiting(): Boolean {
+        return shouldReanalyzeOnScreenMutation()
+    }
+
+    private fun DemoStep.shouldReanalyzeOnScreenMutation(): Boolean {
+        return when (this) {
+            DemoStep.SELECT_DEPARTURE_FIELD,
+            DemoStep.INPUT_DEPARTURE,
+            DemoStep.SELECT_DEPARTURE_RESULT,
+            DemoStep.SELECT_ARRIVAL_FIELD,
+            DemoStep.INPUT_ARRIVAL,
+            DemoStep.SELECT_ARRIVAL_RESULT,
+            DemoStep.SELECT_DATE_FIELD,
+            DemoStep.SELECT_TOMORROW,
+            DemoStep.SELECT_TIME,
+            DemoStep.CONFIRM_DATE,
+            DemoStep.SELECT_PASSENGER_FIELD,
+            DemoStep.ADULT_PLUS_1,
+            DemoStep.CHILD_PLUS_1,
+            DemoStep.CONFIRM_PASSENGER,
+            DemoStep.SEARCH_TRAINS -> true
+            DemoStep.SCAN_VISIBLE_RESULTS,
+            DemoStep.APPLY_NEXT_SEARCH_POLICY,
+            DemoStep.SUGGEST_TRAIN,
+            DemoStep.FOLLOW_USER_SELECTION,
+            DemoStep.PAYMENT_ENTRY,
+            DemoStep.DONE -> false
+        }
+    }
+
+    private fun performTap(bounds: com.cuee.domain.scoring.Bounds): Boolean {
+        val x = bounds.left + bounds.width / 2f
+        val y = bounds.top + bounds.height / 2f
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 80))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
+    private fun ScreenSnapshot.isTrainResultsScreen(): Boolean {
+        return nodes.any { node ->
+            val text = listOfNotNull(node.text, node.contentDescription).joinToString(" ")
+            text.contains("열차 조회") || text.contains("열차조회")
+        }
+    }
+
+    private fun performTimePickerSwipe(): Boolean {
+        val path = Path().apply {
+            moveTo(1_010f, 1_338f)
+            lineTo(620f, 1_338f)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 250))
+            .build()
+        if (dispatchGesture(gesture, null, null)) return true
+
+        return korailRootNodes()
+            .asSequence()
+            .mapNotNull { root -> findNodeByIdHint(root, "hourPickScroll") }
+            .firstOrNull()
+            ?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) == true
+    }
+
+    private fun performClickOnNode(nodeId: String): Boolean {
+        val node = korailRootNodes()
+            .asSequence()
+            .mapNotNull { root -> findNodeByViewId(root, nodeId) }
+            .firstOrNull()
+            ?: return false
+        return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+    private fun findNodeByViewId(node: AccessibilityNodeInfo, nodeId: String): AccessibilityNodeInfo? {
+        if (
+            node.isVisibleToUser &&
+            node.isEnabled &&
+            node.viewIdResourceName == nodeId
+        ) {
+            return node
+        }
+        for (index in 0 until node.childCount) {
+            val child = node.getChild(index) ?: continue
+            val found = findNodeByViewId(child, nodeId)
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun findNodeByIdHint(node: AccessibilityNodeInfo, idHint: String): AccessibilityNodeInfo? {
+        if (
+            node.isVisibleToUser &&
+            node.isEnabled &&
+            node.viewIdResourceName?.contains(idHint, ignoreCase = true) == true
+        ) {
+            return node
+        }
+        for (index in 0 until node.childCount) {
+            val child = node.getChild(index) ?: continue
+            val found = findNodeByIdHint(child, idHint)
+            if (found != null) return found
+        }
+        return null
+    }
+
     private fun scheduleGuidanceTimeout(timeoutMs: Long) {
         guidanceTimeoutJob?.cancel()
         guidanceTimeoutJob = scope.launch {
@@ -265,9 +639,49 @@ class CueAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun scheduleDemoRecheck() {
+        if (demoRecheckJob?.isActive == true) return
+        demoRecheckJob = scope.launch {
+            while (
+                currentState != GuideState.IDLE &&
+                demoSession?.step?.shouldReanalyzeWhileWaiting() == true
+            ) {
+                delay(DEMO_RECHECK_DELAY_MS)
+                if (
+                    currentState == GuideState.IDLE ||
+                    demoSession?.step?.shouldReanalyzeWhileWaiting() != true
+                ) {
+                    break
+                }
+                analyzeCurrentScreen()
+            }
+        }
+    }
+
+    private fun scheduleDemoPulse(key: String) {
+        if (lastDemoPulseKey == key) return
+        lastDemoPulseKey = key
+        if (demoPulseJob?.isActive == true) return
+        demoPulseJob = scope.launch {
+            delay(DEMO_RECHECK_DELAY_MS)
+            if (
+                currentState != GuideState.IDLE &&
+                demoSession?.step?.shouldReanalyzeWhileWaiting() == true
+            ) {
+                analyzeCurrentScreen()
+            }
+        }
+    }
+
     private fun stopGuidance(reason: StopReason, speak: Boolean) {
         guidanceTimeoutJob?.cancel()
+        demoRecheckJob?.cancel()
+        demoPulseJob?.cancel()
         if (::speechController.isInitialized) speechController.stopListening()
+        if (::bubble.isInitialized) bubble.setListening(false)
+        demoSession = null
+        lastDemoSpokenKey = null
+        lastDemoPulseKey = null
         if (::guideSession.isInitialized) guideSession.stop(reason)
         hideGuideOverlay()
         awaitingGuidedTap = false
@@ -288,8 +702,16 @@ class CueAccessibilityService : AccessibilityService() {
     }
 
     private fun Int.isGuideAdvanceEvent(): Boolean {
-        return this == AccessibilityEvent.TYPE_VIEW_CLICKED ||
-            this == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+        val activeDemo = demoSession
+        if (activeDemo == null) {
+            return this == AccessibilityEvent.TYPE_VIEW_CLICKED
+        }
+
+        return this == AccessibilityEvent.TYPE_VIEW_CLICKED
+    }
+
+    private fun Int.isDemoScreenMutationEvent(): Boolean {
+        return this == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
             this == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
     }
 
@@ -354,7 +776,43 @@ class CueAccessibilityService : AccessibilityService() {
         return when (this) {
             KorailCommand.SHOW_MY_TICKET -> UtTaskType.SHOW_MY_TICKET
             KorailCommand.FIND_RESERVATION_START -> UtTaskType.FIND_RESERVATION_START
+            KorailCommand.DEMO_JINJU_TO_SEOUL -> UtTaskType.DEMO_JINJU_TO_SEOUL
         }
+    }
+
+    private fun setTextOnEditableNode(text: String): Boolean {
+        val editable = korailRootNodes()
+            .asSequence()
+            .mapNotNull { root -> findEditableNode(root) }
+            .firstOrNull()
+            ?: return false
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        return editable.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+    }
+
+    private fun korailRootNodes(): List<AccessibilityNodeInfo> {
+        return windows
+            .mapNotNull { it.root }
+            .filter { it.packageName?.toString() == KORAIL_PACKAGE }
+            .ifEmpty { listOfNotNull(rootInActiveWindow).filter { it.packageName?.toString() == KORAIL_PACKAGE } }
+    }
+
+    private fun findEditableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (
+            node.isVisibleToUser &&
+            node.isEnabled &&
+            (node.isEditable || node.className?.toString()?.contains("EditText", ignoreCase = true) == true)
+        ) {
+            return node
+        }
+        for (index in 0 until node.childCount) {
+            val child = node.getChild(index) ?: continue
+            val found = findEditableNode(child)
+            if (found != null) return found
+        }
+        return null
     }
 
     private fun StopReason.toUtResult(): UtResult {
@@ -386,6 +844,17 @@ class CueAccessibilityService : AccessibilityService() {
         const val PROMPT_PLEASE_TAP = "초록색 테두리 안을 눌러주세요."
         const val PROMPT_TRY_AGAIN = "다시 말해 주세요."
         const val ACTION_DEBUG_COMMAND = "com.cuee.DEBUG_COMMAND"
+        const val ACTION_DEBUG_STOP = "com.cuee.DEBUG_STOP"
         const val EXTRA_UTTERANCE = "utterance"
+        const val TAG = "CueAccessibilityService"
+        const val DEFAULT_POST_TAP_DELAY_MS = 700L
+        const val AUTO_TAP_POST_DELAY_MS = 1_000L
+        const val DEMO_RECHECK_DELAY_MS = 1_200L
+        const val DEMO_SETUP_TIMEOUT_MS = 300_000L
+        const val POLICY_BACK_DELAY_MS = 1_800L
+        const val STATION_RESULT_DELAY_MS = 700L
+        const val DEMO_INPUT_RETRY_COUNT = 3
+        const val DEMO_POLICY_BACK_RETRY_COUNT = 2
+        const val DEMO_TIME_SWIPE_RETRY_COUNT = 3
     }
 }

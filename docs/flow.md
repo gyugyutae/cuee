@@ -1,6 +1,13 @@
-# 사용자 흐름: KorailTalk MVP
+# Flow: Real Korail Demo
 
-## 상태
+## Start Preconditions
+
+- User is logged in to real KorailTalk.
+- KorailTalk is on the home ticket-booking screen.
+- Cuee accessibility service and bubble are enabled.
+- User says once: `진주에서 서울 가는 표 예매해줘`.
+
+## Runtime States
 
 ```text
 IDLE
@@ -11,102 +18,103 @@ SENSITIVE_PAUSE
 FAILED
 ```
 
-## 첫 실행
+Demo state is memory-only:
 
-1. 사용자가 cuee 앱을 연다.
-2. 앱은 큐가 대신 누르지 않고, 결제/로그인/개인정보 화면에서 멈춘다는 점을 안내한다.
-3. 사용자가 동의한다.
-4. 앱은 Android 접근성 설정으로 이동시킨다.
-5. 접근성 서비스가 켜지면 코레일톡 위에서 cue bubble을 띄울 수 있다.
+```text
+DEMO_SELECT_DEPARTURE_FIELD
+DEMO_INPUT_DEPARTURE
+DEMO_SELECT_DEPARTURE_RESULT
+DEMO_SELECT_ARRIVAL_FIELD
+DEMO_INPUT_ARRIVAL
+DEMO_SELECT_ARRIVAL_RESULT
+DEMO_SELECT_DATE_FIELD
+DEMO_SELECT_TOMORROW
+DEMO_SELECT_TIME
+DEMO_SELECT_PASSENGER_FIELD
+DEMO_ADULT_PLUS_1
+DEMO_CHILD_PLUS_1
+DEMO_CONFIRM_PASSENGER
+DEMO_SEARCH_TRAINS
+DEMO_SCAN_VISIBLE_RESULTS
+DEMO_EXPAND_TODAY_TIME
+DEMO_SELECT_NEXT_DAY
+DEMO_EXPAND_NEXT_DAY_TIME
+DEMO_SUGGEST_TRAIN
+DEMO_FOLLOW_USER_SELECTION
+DEMO_PAYMENT_ENTRY
+DEMO_DONE
+```
 
-MVP 앱 내부 UI는 최소화한다. 구현 우선순위는 실제 코레일톡 위 overlay다.
+## Main Flow
 
-## 기본 사용 흐름
+1. Highlight departure field.
+2. On station-search screen, attempt `ACTION_SET_TEXT("진주")`.
+3. Highlight `진주` result; user selects it.
+4. Highlight arrival field.
+5. On station-search screen, attempt `ACTION_SET_TEXT("서울")`.
+6. Highlight `서울` result; user selects it.
+7. Highlight `가는날`.
+8. Set/highlight tomorrow date and 09:00 where possible; use current KorailTalk controls.
+9. Highlight passenger field.
+10. Highlight adult `+`; user sets adult count from default 1 to adult 2.
+11. Highlight child `+`; user sets child count from default 0 to child 1.
+12. Highlight passenger `확인` if user confirmation is required.
+13. Highlight `열차조회`; user runs search.
+14. Scan only currently visible result rows.
+15. If a valid candidate exists, highlight it with status `직접 선택`; speak once and keep the mask stable.
+16. If none exists, automatically try search policies in order:
+    `tomorrow 09:00+` -> `tomorrow 06:00+` -> `following day 09:00+` -> `following day 06:00+`.
+17. After user taps a highlighted candidate, highlight `예매`.
+18. After user taps `예매`, highlight `결제/발권` or equivalent safe CTA.
+19. If an intermediate `확인` dialog appears, highlight `확인`.
+20. Highlight payment entry, speak safety message, and stop before payment.
 
-1. 사용자가 코레일톡을 직접 연다.
-2. cue bubble이 화면 좌우 가장자리에 표시된다.
-3. 사용자가 bubble을 누른다.
-4. 상태가 `LISTENING`으로 바뀌고 "무엇을 도와드릴까요?"를 안내한다.
-5. 사용자가 "예매한 표 보여줘" 또는 "승차권 예매 찾기"라고 말한다.
-6. 상태가 `THINKING`으로 바뀐다.
-7. 큐가 현재 접근성 tree를 `ScreenSnapshot`으로 변환한다.
-8. `SafetyPolicy`가 민감 화면 여부를 검사한다.
-9. `TargetScorer`와 `CandidateResolver`가 후보 영역을 선택한다.
-10. 후보가 명확하면 상태가 `GUIDING`으로 바뀐다.
-11. 큐는 후보 영역만 남기고 흰색 mask를 표시한다.
-12. 사용자가 노출된 영역을 직접 누른다.
-13. 화면 변경 이벤트가 오면 다음 step을 분석한다.
-14. 최대 3-step까지 반복한다.
+Train candidate, reservation, terms, personal-info, and payment taps are user actions.
 
-## 명령별 목표
+## Candidate Policy
 
-### 예매한 표 보여줘
+Valid candidates must be visible and directly bookable. Exclude `매진`, `예약대기`, `예약링크`, `-`, disabled, external-link, and payment/confirmation controls.
 
-목표:
+Rank within a search policy:
 
-- 예매내역, 나의 승차권, 승차권 확인 등 표 확인 진입점을 찾는다.
+1. KTX standard to Seoul
+2. KTX premium/special to Seoul
+3. ITX/Saemaeul standard to Seoul
+4. SRT standard/special to Suseo only when no Seoul-station candidate exists
+5. Other directly bookable visible candidates
 
-종료:
+Within the same class, choose the earliest departure at or after the active time threshold.
 
-- 표/QR/예약 상세/민감 정보 화면에 들어가면 큐는 멈춘다.
-- 안내: "이 화면은 직접 확인해 주세요."
+## Timing
 
-### 승차권 예매 찾기
+- Default post-tap wait: 700 ms.
+- Station search result retry: up to 1500 ms.
+- Train result retry: up to 3000 ms.
+- Payment-entry retry: up to 2000 ms.
+- Recommendation/follow-up highlights do not poll while waiting; keep the mask stable until user tap or timeout.
+- `결제하기` highlight duration: 8 seconds, then stop.
 
-목표:
+## TTS Policy
 
-- 승차권 예매, 예매, 기차표 예매 등 예매 시작 진입점을 찾는다.
+No TTS for normal setup/search steps. Use green highlight and short status text.
 
-종료:
+TTS messages:
 
-- 날짜/역 선택 등 다음 탐색은 최대 3-step 안에서만 안내한다.
-- 로그인, 결제, 인증, 개인정보, 예매 확정 단계에서는 멈춘다.
+- Candidate found: `추천 후보를 찾았어요. 강조된 버튼을 직접 눌러 선택하세요.`
+- No candidate after all automatic policies: `현재 조건에서는 바로 예매 가능한 좌석이 없어요. 시간을 더 넓히거나 조건을 바꾸면 이어서 찾을 수 있어요.`
+- Login/server/permission: `로그인이 필요해요. 로그인 후 다시 이어갈 수 있어요.`
+- Payment safety: `결제하기 버튼이에요. 결제는 직접 확인해 주세요.`
 
-## 취소/중단 흐름
+Short status text examples: `진주 -> 서울`, `어른 2명`, `어린이 1명`, `내일 09시 이후`, `시간 확장`, `다음날 확인`, `추천`, `직접 선택`, `결제 전 확인`.
 
-- `LISTENING` 중 사용자가 bubble 외부나 코레일톡 화면을 터치하면 듣기를 멈추고 `IDLE`로 돌아간다.
-- 마스킹 중 좌측 상단 닫기 아이콘을 누르면 `IDLE`로 돌아간다.
-- 12초 동안 조작이 없으면 안내를 닫고 `IDLE`로 돌아간다.
+## Recovery
 
-## 실패 흐름
+After each user tap:
 
-음성 인식 실패:
+1. Re-analyze current screen after the configured delay.
+2. Try the expected demo state target.
+3. If missing, try one adjacent previous/next demo state.
+4. If still missing, reclassify the current screen and continue only when a safe CTA is clear.
+5. Otherwise stop with status `직접 확인`.
 
-- "잘 못 들었어요. 다시 말씀해 주세요."
-
-지원하지 않는 명령:
-
-- "아직 이 도움은 준비 중이에요."
-
-코레일톡이 아님:
-
-- cuee는 안내를 시작하지 않는다.
-
-후보 없음:
-
-- "지금 화면에서는 찾지 못했어요."
-
-후보 겹침/낮은 확신도:
-
-- "정확히 고르기 어려워요. 다시 말해 주세요."
-
-민감 화면:
-
-- "이 화면은 직접 확인해 주세요."
-
-## 마스킹 규칙
-
-- 화면 전체를 흰색 mask처럼 보이게 한다.
-- 구현은 후보 영역을 비운 여러 overlay 사각형으로 한다.
-- 후보 영역에는 overlay를 두지 않아 실제 코레일톡 터치가 전달된다.
-- 후보 영역에는 얇은 초록 테두리만 표시한다.
-- 마스킹 중 설명 텍스트를 표시하지 않는다.
-- 후보는 최대 3개까지 표시한다.
-- 후보가 겹치면 cluster 처리 후 score가 높은 후보만 남긴다.
-- 겹침을 안전하게 해소하지 못하면 실패 처리한다.
-
-## 발표 리스크 대응
-
-- 발표용 시뮬레이션 화면은 기본 범위가 아니다.
-- 실제 코레일톡 위 동작이 불안정하면 fallback으로만 만든다.
-- 본선 발표는 실제 기기 녹화 영상으로 리스크를 줄인다.
+Sensitive login, payment details, authentication, personal-info, or final-confirmation screens must stop guidance.

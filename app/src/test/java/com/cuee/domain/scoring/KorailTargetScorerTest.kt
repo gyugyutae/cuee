@@ -85,6 +85,30 @@ class KorailTargetScorerTest {
         assertTrue(candidates.isEmpty())
     }
 
+    @Test
+    fun givesTicketConfirmationEntryPriorityOverReservationHistory() {
+        val candidates = scorer.score(
+            snapshot(
+                node(
+                    id = "ticket-check",
+                    text = "승차권 확인",
+                    clickable = true,
+                    className = "android.widget.TextView"
+                ),
+                node(
+                    id = "reservation-history",
+                    text = "예매내역",
+                    clickable = true,
+                    className = "android.widget.TextView"
+                )
+            ),
+            KorailCommand.SHOW_MY_TICKET
+        )
+
+        assertEquals("ticket-check", candidates.first().nodeId)
+        assertTrue(candidates.first().score > candidates.last().score)
+    }
+
     private fun snapshot(vararg nodes: ScreenNode): ScreenSnapshot {
         return ScreenSnapshot(
             packageName = "com.korail.talk",

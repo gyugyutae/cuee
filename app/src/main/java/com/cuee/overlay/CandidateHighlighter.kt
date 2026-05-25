@@ -10,20 +10,23 @@ class CandidateHighlighter(
     private val windowManager: WindowManager
 ) {
     private val borderViews = mutableListOf<View>()
+    private var lastBounds: List<Bounds> = emptyList()
 
     fun show(bounds: List<Bounds>) {
+        val nextBounds = bounds.filter { it.isValid() }.take(MAX_HIGHLIGHTS)
+        if (nextBounds == lastBounds && borderViews.isNotEmpty()) return
         hide()
+        lastBounds = nextBounds
         val screen = windowManager.screenBounds().toBounds()
         val thickness = context.dp(BORDER_THICKNESS_DP).coerceAtLeast(1)
-        bounds
-            .filter { it.isValid() }
-            .take(MAX_HIGHLIGHTS)
+        nextBounds
             .forEach { drawBorder(it, screen, thickness) }
     }
 
     fun hide() {
         borderViews.forEach { runCatching { windowManager.removeView(it) } }
         borderViews.clear()
+        lastBounds = emptyList()
     }
 
     private fun drawBorder(bounds: Bounds, screen: Bounds, thickness: Int) {

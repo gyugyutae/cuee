@@ -1,5 +1,8 @@
 package com.cuee.overlay
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
@@ -24,11 +27,16 @@ class BubbleOverlayController(
     private var downX = 0
     private var downY = 0
     private var dragging = false
+    private var listening = false
+    private var listeningAnimator: AnimatorSet? = null
 
     fun show(side: BubbleEdge = BubbleEdge.RIGHT, yRatio: Float = 0.55f) {
         bubble?.let { existing ->
             params?.let { existingParams ->
-                if (runCatching { windowManager.updateViewLayout(existing, existingParams) }.isSuccess) return
+                if (runCatching { windowManager.updateViewLayout(existing, existingParams) }.isSuccess) {
+                    applyListeningState(existing)
+                    return
+                }
             }
             bubble = null
             params = null
@@ -50,13 +58,59 @@ class BubbleOverlayController(
         bubble = view
         params = lp
         windowManager.addView(view, lp)
+        applyListeningState(view)
     }
 
     fun hide() {
+        stopListeningAnimation()
         bubble?.let { runCatching { windowManager.removeView(it) } }
         bubble = null
         params = null
         hideDismissTarget()
+    }
+
+    fun setListening(value: Boolean) {
+        listening = value
+        bubble?.let { applyListeningState(it) }
+    }
+
+    private fun applyListeningState(view: TextView) {
+        if (listening) {
+            if (listeningAnimator?.isStarted == true) return
+            view.text = ""
+            view.background = circle(CUE_GREEN)
+            val pulseX = ObjectAnimator.ofFloat(view, "scaleX", 1.0f, 1.22f).apply {
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                duration = 520L
+            }
+            val pulseY = ObjectAnimator.ofFloat(view, "scaleY", 1.0f, 1.22f).apply {
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                duration = 520L
+            }
+            val fade = ObjectAnimator.ofFloat(view, "alpha", 1.0f, 0.72f).apply {
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                duration = 520L
+            }
+            listeningAnimator = AnimatorSet().apply {
+                playTogether(pulseX, pulseY, fade)
+                start()
+            }
+        } else {
+            stopListeningAnimation()
+            view.text = "큐"
+            view.scaleX = 1.0f
+            view.scaleY = 1.0f
+            view.alpha = 1.0f
+            view.background = circle(CUE_GREEN)
+        }
+    }
+
+    private fun stopListeningAnimation() {
+        listeningAnimator?.cancel()
+        listeningAnimator = null
     }
 
     private fun handleTouch(event: MotionEvent): Boolean {

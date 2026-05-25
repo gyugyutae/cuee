@@ -21,6 +21,7 @@ class KorailTargetScorer : TargetScorer {
         val normalizedParent = parentHint.orEmpty().normalizeForScoring()
 
         val exactTextMatched = spec.exactKeywords.any { normalizedText.contains(it) }
+        val primaryTextMatched = spec.primaryKeywords.any { normalizedText.contains(it) }
         val partialTextMatched = !exactTextMatched && spec.partialKeywords.any { normalizedText.contains(it) }
         val parentMatched = spec.exactKeywords.any { normalizedParent.contains(it) } ||
             spec.partialKeywords.any { normalizedParent.contains(it) }
@@ -29,7 +30,7 @@ class KorailTargetScorer : TargetScorer {
         val textMatched = exactTextMatched || partialTextMatched || parentMatched
 
         when {
-            exactTextMatched -> score += EXACT_TEXT_SCORE
+            exactTextMatched -> score += EXACT_TEXT_SCORE + if (primaryTextMatched) PRIMARY_TEXT_BONUS else 0
             partialTextMatched || parentMatched -> score += PARTIAL_TEXT_SCORE
         }
         if (contentDescriptionMatched) score += CONTENT_DESCRIPTION_SCORE
@@ -76,13 +77,21 @@ class KorailTargetScorer : TargetScorer {
         return when (this) {
             KorailCommand.SHOW_MY_TICKET -> CommandScoringSpec(
                 targetType = TargetType.MY_TICKET_ENTRY,
-                exactKeywords = setOf("승차권확인", "예매확인", "예매내역", "예약내역", "마이티켓", "내승차권", "표확인"),
+                primaryKeywords = setOf("승차권확인", "표확인", "내승차권", "마이티켓", "나의티켓"),
+                exactKeywords = setOf("승차권확인", "예매확인", "예매내역", "예약내역", "마이티켓", "나의티켓", "내승차권", "표확인"),
                 partialKeywords = setOf("승차권", "티켓", "표", "예매", "예약")
             )
             KorailCommand.FIND_RESERVATION_START -> CommandScoringSpec(
                 targetType = TargetType.RESERVATION_ENTRY,
-                exactKeywords = setOf("승차권예매", "열차예매", "예매하기", "기차표예매", "승차권예약"),
+                primaryKeywords = setOf("승차권예매", "예매하기", "기차표예매", "열차조회"),
+                exactKeywords = setOf("승차권예매", "열차예매", "예매하기", "기차표예매", "승차권예약", "열차조회"),
                 partialKeywords = setOf("예매", "예약", "열차", "기차표", "승차권")
+            )
+            KorailCommand.DEMO_JINJU_TO_SEOUL -> CommandScoringSpec(
+                targetType = TargetType.RESERVATION_ENTRY,
+                primaryKeywords = setOf("승차권예매", "열차조회"),
+                exactKeywords = setOf("승차권예매", "열차조회"),
+                partialKeywords = setOf("예매", "예약", "열차", "승차권")
             )
         }
     }
@@ -93,12 +102,14 @@ class KorailTargetScorer : TargetScorer {
 
     private data class CommandScoringSpec(
         val targetType: TargetType,
+        val primaryKeywords: Set<String>,
         val exactKeywords: Set<String>,
         val partialKeywords: Set<String>
     )
 
     private companion object {
         const val EXACT_TEXT_SCORE = 60
+        const val PRIMARY_TEXT_BONUS = 20
         const val PARTIAL_TEXT_SCORE = 35
         const val CONTENT_DESCRIPTION_SCORE = 45
         const val CLICKABLE_SCORE = 20

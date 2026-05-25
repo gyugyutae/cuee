@@ -1,0 +1,6 @@
+appId: com.korail.talk
+---
+- launchApp
+- assertVisible: "승차권 예매"
+- assertVisible: "열차조회"
+- assertVisible: "나의 티켓"

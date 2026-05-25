@@ -1,78 +1,72 @@
-# PRD: cuee KorailTalk MVP
+# PRD: Cuee Real Korail Demo
 
-## 한 줄 정의
+## Product Intent
 
-큐(cuee)는 코레일톡에서 예매/표 확인에 실패하는 사용자가 앱을 배우지 않아도 다음에 누를 곳만 보고 거래를 이어가게 하는 Android 화면 길잡이다.
+Cuee is an Android accessibility guide for KorailTalk. It is not an auto-booking bot. It reduces booking time by continuously highlighting the next correct action after one user command, while the user remains responsible for every selection, reservation, and payment decision.
 
-## 제품 관점
+Target demo goal: reduce the time to start a Jinju-to-Seoul booking by about 50% versus unaided KorailTalk use.
 
-- 첫 제품은 "노인용 앱"이 아니라 모바일 거래 실패율이 높은 사용자를 위한 completion layer다.
-- 고령자, 인지 부담이 큰 사용자, 방한 외국인은 같은 문제를 겪는다: 화면에는 기능이 있지만 다음 행동을 찾지 못한다.
-- MVP는 코레일톡 하나에서 좁고 정확하게 작동해야 한다. 넓은 범용성보다 성공률이 우선이다.
-- 큐는 대신 조작하지 않는다. 사용자가 직접 누르게 해서 신뢰와 안전을 지킨다.
-- 발표/사업 스토리는 B2C 보호자 수요로 절박함을 증명하고, B2B 교통/관광 접근성 솔루션으로 확장한다.
+## Demo Command
 
-## MVP 범위
+`진주에서 서울 가는 표 예매해줘`
 
-지원 앱:
+Interpreted as fixed demo flow `DEMO_JINJU_TO_SEOUL`.
 
-- 코레일톡 Android 앱만 지원
+## Fixed Demo Parameters
 
-지원 명령:
+- App: real KorailTalk package `com.korail.talk`
+- Start screen: KorailTalk home ticket-booking screen
+- Login: user completes login before demo
+- Route: `진주` -> `서울`
+- Date search order: tomorrow first, then the following day only if needed
+- Time search order per date: 09:00 or later first, then 06:00 or later
+- Passengers: adults 2, child 1
+- Train: recommend a visible, directly bookable candidate by policy; highlight only
+- End: guide through `예매` -> `결제/발권` -> safe final `확인` if shown; then highlight payment entry and stop
 
-- "예매한 표 보여줘"
-- "승차권 예매 찾기"
+## UX Principles
 
-핵심 UX:
+- One initial voice command; no repeated commands per step.
+- Cuee continues screen analysis after each user tap.
+- General steps use existing green border/mask highlight plus very short status text.
+- TTS is allowed only for candidate found, fallback/exception, login/server/permission, and payment safety.
+- Cuee may auto-fill station text with accessibility `ACTION_SET_TEXT`.
+- Cuee may auto-fill station text; visible navigation and booking actions are highlighted for user taps.
+- Cuee must not auto-tap train candidates, reservation/confirmation, terms, personal-info, cart, or payment actions.
+- Existing field values are ignored; the flow resets fields by guiding the user through them again.
+- Product message: Cuee narrows the path quickly; the user makes every material choice.
 
-- 사용자가 코레일톡을 직접 연다.
-- 화면 가장자리에 cue bubble이 뜬다.
-- 사용자가 bubble을 누르고 한국어로 말한다.
-- 큐가 접근성 노드를 분석해 다음에 누를 후보를 찾는다.
-- 후보가 명확하면 후보 영역만 남기고 나머지를 흰색으로 가린다.
-- 후보 영역에는 얇은 초록 테두리만 표시한다.
-- 사용자가 직접 누른다.
-- 최대 3-step까지 이어서 안내한다.
+## Scope
 
-## 비범위
+In scope:
 
-- 쿠팡, 카카오톡, 금융, 병원, 배달 앱 지원
-- 외국어 음성 명령 구현
-- AI API 기반 화면 이해
-- 서버, 로그인, 원격 보호자 조작
-- 대신 누르기, 자동 예매, 자동 결제
-- 로그인/인증/개인정보/예매 확정 화면 안내
-- 화면 텍스트/음성 원문/승차권 정보 저장
+- Real KorailTalk only.
+- Departure/arrival station reset and station search guidance.
+- Automatic text input attempt for `진주` and `서울`; fallback to search-field highlight.
+- Guided setup for tomorrow, 09:00, adult 2, and child 1.
+- Automatic fallback search to tomorrow 06:00, following day 09:00, then following day 06:00.
+- Current visible result-screen candidate analysis only; no automatic result-list scrolling for MVP.
+- Train search and recommendation guidance using direct-bookability and route-fit rules.
+- Payment-entry highlight and safe stop.
 
-## 안전 정책
+Out of scope:
 
-- 로그인, 개인정보, 결제, 인증, 예매 확정, 구매 확정 화면에서는 즉시 중단한다.
-- 중단 문구: "이 화면은 직접 확인해 주세요."
-- 후보가 애매하면 안내하지 않는다.
-- 완료시간보다 오안내 방지가 우선이다.
+- `mock-korail` work for this demo.
+- Login automation.
+- Payment or final purchase automation.
+- Generic arbitrary route/date/passenger parsing.
+- Server/Claude API in MVP. Future AI may assist explanations/re-ranking, but rules keep final authority.
+- Stored screen/audio/ticket/payment/auth content.
 
-## 성공 기준
+## Success Criteria
 
-- `./gradlew :app:assembleDebug` 통과
-- `./gradlew :app:testDebugUnitTest` 통과
-- 코레일톡 위 cue bubble 표시
-- bubble tap 후 한국어 음성 인식 시작
-- 두 지원 명령 parsing
-- 후보 영역 마스킹 + 초록 테두리 표시
-- 실제 앱 터치 전달
-- 민감 화면 중단
-- 최대 3-step 연속 안내
-
-## UT 목표
-
-- 코레일톡 "예매한 표 찾기"와 "승차권 예매 시작" task를 cuee 사용 전/후로 비교한다.
-- 목표 가설:
-  - 완료시간 50% 감소
-  - 도움 요청 70% 감소
-  - 실패율 30%p 감소
-
-## 경쟁 포지션
-
-- Gemini Live는 화면을 공유하고 말로 조언받는 범용 상담 AI다.
-- cuee는 코레일톡 위에서 실제로 누를 영역만 남기는 app-specific completion layer다.
-- 핵심 차이는 "설명"이 아니라 "행동 가능한 화면 상태를 직접 만든다"는 점이다.
+- `DEMO_JINJU_TO_SEOUL` command is parsed from the demo utterance.
+- Real KorailTalk home screen produces departure-field guidance.
+- Station search auto-fill is attempted and falls back safely when unavailable.
+- The flow advances automatically after user taps.
+- Setup reaches `진주 -> 서울`, adult 2 + child 1, and the active search time/date policy without extra user commands.
+- Visible result candidates exclude `매진`, `예약대기`, `예약링크`, `-`, and external-link flows.
+- Recommendation priority favors 서울역 direct candidates before SRT/Suseo alternatives.
+- No candidate produces a friendly, non-broken next-action message.
+- `결제하기` is highlighted with: `결제하기 버튼이에요. 결제는 직접 확인해 주세요.`
+- Unit tests pass and real-device smoke uses Maestro + ADB debug broadcast + screenshots + logcat.

@@ -1,0 +1,30 @@
+package com.cuee.domain.demo
+
+enum class DemoStep {
+    SELECT_DEPARTURE_FIELD,
+    INPUT_DEPARTURE,
+    SELECT_DEPARTURE_RESULT,
+    SELECT_ARRIVAL_FIELD,
+    INPUT_ARRIVAL,
+    SELECT_ARRIVAL_RESULT,
+    SELECT_DATE_FIELD,
+    SELECT_TOMORROW,
+    SELECT_TIME,
+    CONFIRM_DATE,
+    SELECT_PASSENGER_FIELD,
+    ADULT_PLUS_1,
+    CHILD_PLUS_1,
+    CONFIRM_PASSENGER,
+    SEARCH_TRAINS,
+    SCAN_VISIBLE_RESULTS,
+    APPLY_NEXT_SEARCH_POLICY,
+    SUGGEST_TRAIN,
+    FOLLOW_USER_SELECTION,
+    PAYMENT_ENTRY,
+    DONE
+}
+
+fun DemoStep.next(): DemoStep {
+    val values = DemoStep.entries
+    return values.getOrElse(ordinal + 1) { DemoStep.DONE }
+}

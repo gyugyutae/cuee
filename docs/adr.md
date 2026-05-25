@@ -1,85 +1,73 @@
-# ADR: KorailTalk MVP
+# ADR: Real Korail Demo
 
-## ADR-001: 코레일톡 단일 앱으로 시작
+## ADR-001: Real KorailTalk Only For This Demo
 
-결정: MVP는 코레일톡만 지원한다.
+Decision: test and demo against `com.korail.talk`; do not add mock-korail coverage for this flow.
 
-이유: 아이디어톤과 UT에서 "좁고 정확한 성공"이 필요하다. 여러 앱을 얕게 지원하면 정확도와 메시지가 흐려진다.
+Intent: the demo must prove value on the real app. Mock work would add maintenance and dilute the current goal.
 
-## ADR-002: 한국어 명령 2개만 지원
+## ADR-002: Fixed Demo Command
 
-결정: "예매한 표 보여줘", "승차권 예매 찾기" 흐름만 구현한다.
+Decision: implement `진주에서 서울 가는 표 예매해줘` as `DEMO_JINJU_TO_SEOUL`.
 
-이유: 코레일톡의 대표 실패 순간을 보여주기에 충분하고, 빠른 MVP에서 scoring 정확도를 관리할 수 있다.
+Intent: fast, reliable demo beats premature generic route parsing. Generalization can follow after the fixed flow works.
 
-## ADR-003: 외국인은 구현이 아니라 확장 가설
+## ADR-003: Continuous Guidance After One Command
 
-결정: 외국인은 발표 스토리와 UT 타깃에 포함하지만, 외국어 음성 인식은 MVP에서 제외한다.
+Decision: one voice command starts a state machine that advances after user taps.
 
-이유: 마스킹 UX는 언어 장벽에도 유효할 수 있다. 그러나 첫 구현은 한국어 명령 2개로 정확도를 확보한다.
+Intent: repeated commands would slow the demo. The product claim is faster booking through continuous next-action guidance.
 
-## ADR-004: AI API 미사용
+## ADR-004: User-Tap Guidance, Minimal Automation
 
-결정: 첫 MVP는 OpenAI/Gemini API 없이 접근성 노드 분석으로 동작한다.
+Decision: Cuee may auto-fill station text, but route/date/time/passenger/search/reservation/payment-adjacent actions are highlighted for user taps.
 
-이유: 코레일톡 단일 범위에서는 deterministic matching이 더 빠르고 통제 가능하다. API는 지연, 비용, 개인정보 우려, 시연 불안정성을 늘린다.
+Intent: the demo still reduces decision/search time, while the user clearly sees the flow and keeps control.
 
-## ADR-005: Gemini Live와 다른 completion layer
+## ADR-005: Auto-Fill Station Text Only
 
-결정: Gemini Live 같은 범용 화면 상담 AI와 정면으로 같은 제품이 되지 않는다.
+Decision: attempt `ACTION_SET_TEXT` for station names; fallback to search-field highlight if it fails.
 
-이유: Gemini는 화면을 보고 말로 조언한다. cuee는 앱 위에서 누를 곳만 남겨 실제 행동 가능한 화면 상태를 만든다.
+Intent: text entry is low-risk and speeds the demo. Selection remains user-controlled.
 
-## ADR-006: 대신 누르기 금지
+## ADR-006: Short Status, TTS Only For Four Cases
 
-결정: 큐는 사용자를 대신해 누르지 않는다.
+Decision: normal steps use green mask/highlight plus compact status text. TTS is limited to candidate found, no-candidate/fallback, login/server/permission, and payment safety.
 
-이유: 안전, 신뢰, 접근성 정책 리스크를 줄인다. 특히 교통 예매에서 결제/확정 사고를 피해야 한다.
+Intent: status text shows what Cuee is doing without slowing the demo. Voice is reserved for moments requiring user attention.
 
-## ADR-007: 민감 화면 중단
+## ADR-007: Date And Time Search Policy
 
-결정: 로그인, 인증, 개인정보, 결제, 예매 확정 화면에서는 안내하지 않는다.
+Decision: search tomorrow first, then the following day. For each date, search 09:00+ first, then 06:00+.
 
-이유: cuee의 신뢰는 "못 할 때 멈추는 능력"에서 나온다.
+Intent: preserve the user's likely date preference before changing date. 06:00+ improves success without recommending unrealistic overnight departures.
 
-## ADR-008: 최대 3-step 연속 안내
+## ADR-008: Current Visible Results Only For MVP
 
-결정: 한 요청은 최대 3-step까지 이어진다.
+Decision: result scanning considers only currently visible rows and does not auto-scroll in MVP.
 
-이유: 완료시간 감소에는 연속 안내가 필요하지만, 깊은 자동화는 정확도와 안전 리스크를 키운다.
+Intent: the Sequoia demo values speed and clarity over exhaustive search. Scrolling can be added later if visible-only misses too many valid candidates.
 
-## ADR-009: 정확도 우선
+## ADR-009: Candidate Ranking
 
-결정: 후보가 애매하면 실패 처리한다.
+Decision: rank visible direct-bookable rows by Seoul-station fit and train desirability: KTX standard, KTX premium, ITX/Saemaeul standard, then SRT/Suseo only if no Seoul candidate exists.
 
-이유: 빠른 안내보다 오안내 방지가 중요하다. 잘못된 버튼을 안내하면 제품 신뢰가 무너진다.
+Intent: a user who asks for Seoul should not be steered to Suseo unless Seoul-station options are unavailable. Candidate quality matters more than merely finding any button.
 
-## ADR-010: 흰색 조각 overlay 사용
+## ADR-010: Exclude Reservation Links
 
-결정: 후보 영역을 비운 여러 흰색 overlay 사각형으로 마스킹한다.
+Decision: exclude `예약링크` from MVP recommendations.
 
-이유: 후보 영역에 overlay를 두지 않아야 실제 코레일톡 터치가 전달된다.
+Intent: reservation links may leave the direct KorailTalk booking flow, reducing demo reliability and user trust.
 
-## ADR-011: 얇은 초록 테두리만 표시
+## ADR-011: Rule Engine Has Final Authority Over AI
 
-결정: 마스킹 중 텍스트 설명이나 큰 화살표 대신 후보 영역의 얇은 초록 테두리만 표시한다.
+Decision: MVP does not require Claude/API. If added later, AI may explain or re-rank valid candidates, but deterministic rules keep final authority and validate the result before highlight.
 
-이유: 글을 읽지 않아도 쓸 수 있어야 하고, overlay가 원래 앱 UI를 가리면 안 된다.
+Intent: AI can improve language and judgment, but it must not choose unsafe, unavailable, external, or off-policy actions.
 
-## ADR-012: 데이터 최소 저장
+## ADR-012: Payment Entry Safe Stop
 
-결정: 설정과 익명 UT metric만 저장한다.
+Decision: guide one step past `예매` to `결제/발권` and any safe intermediate `확인`, then highlight payment entry, speak safety message, hold 8 seconds, stop.
 
-이유: 제품의 신뢰 메시지는 "화면/음성/승차권 정보를 저장하지 않는다"여야 한다.
-
-## ADR-013: domain 중심 구조
-
-결정: 정확도 로직은 Android service가 아니라 testable domain layer에 둔다.
-
-이유: command parsing, safety, scoring, candidate resolving, session은 빠르게 unit test로 고쳐야 한다.
-
-## ADR-014: 시뮬레이션은 fallback
-
-결정: 발표용 시뮬레이션 화면은 기본 구현 범위가 아니다.
-
-이유: 제품의 설득력은 실제 코레일톡 위 동작에서 나온다. 발표 리스크는 녹화 영상으로 줄인다.
+Intent: showing the final entry point is enough. Payment remains user responsibility.
