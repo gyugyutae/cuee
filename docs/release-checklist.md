@@ -45,7 +45,8 @@ greenlight playscan --aab app/build/outputs/bundle/release/app-release.aab  # �
 - [ ] Google Play 개발자 계정 생성, 비용 결제 및 본인 인증
 - [ ] 패키지명 `com.cuee` 사용 가능 여부 확인
 - [ ] 개발자명과 문의 이메일 확정
-- [ ] 개인정보 처리방침의 `[대괄호 항목]`을 채우고 공개 HTTPS URL에 게시
+- [x] 개인정보 처리방침의 대괄호 항목 작성 (개발자명 CUEE, zn7013@gmail.com, https://gyutaetae.github.io/cuee/privacy-policy/)
+- [ ] 위 개인정보 처리방침을 공개 HTTPS URL에 실제 게시 (GitHub Pages)
 - [ ] Play App Signing 활성화 및 업로드 인증서 백업
 - [ ] 앱 액세스, 광고, 콘텐츠 등급, 타깃층, Data Safety 작성
 - [ ] AccessibilityService 권한 신고와 실제 사용 영상 제출
