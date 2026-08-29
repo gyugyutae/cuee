@@ -51,7 +51,7 @@ Responsibilities:
 - `DemoScreenClassifier`: identifies home, station search, date/time, passenger, train results, payment-entry, off-flow.
 - `DemoTargetPlanner`: returns the next highlight or fallback message for the current step.
 - `StationInputAction`: attempts `ACTION_SET_TEXT` on the active station search field.
-- `DemoSearchPolicy`: owns the ordered search policies: tomorrow 09:00+, tomorrow 06:00+, following day 09:00+, following day 06:00+.
+- `DemoSearchPolicy`: owns the ordered search policies: tomorrow 06:00+, tomorrow all day, following day 06:00+, following day all day.
 - `TrainResultSelector`: ranks currently visible direct-bookable result rows and skips excluded states.
 
 Keep these classes Android-free except `StationInputAction`, which may need node actions.
@@ -102,10 +102,17 @@ Unit tests:
 - demo session transitions through expected steps
 - tomorrow date calculation
 - passenger plus sequence from adult 1 to adult 2 and child 0 to child 1
-- search policy order: tomorrow 09, tomorrow 06, following day 09, following day 06
+- search policy order: tomorrow 06, tomorrow all day, following day 06, following day all day
 - train selector skips `매진`, `예약대기`, `예약링크`, `-`, external, disabled, and before-threshold rows
 - train selector prioritizes Seoul-station KTX/ITX over SRT/Suseo unless no Seoul candidate exists
 - fallback/status messages return for no candidate, login/server/permission, payment, and off-flow
+
+Deterministic emulator E2E:
+
+- install the real CUEE APK and the deterministic `mock-korail` APK
+- enable the CUEE accessibility service and inject the fixed demo command
+- drive the full Jinju-to-Seoul flow and assert each CUEE target in logcat
+- stop successfully only at the payment safety boundary
 
 Real-device smoke:
 
@@ -115,4 +122,4 @@ Real-device smoke:
 - capture screenshots and logcat
 - verify setup reaches route/date/time/passenger, then result recommendation or friendly no-candidate stop
 
-Do not add mock-korail work for this demo unless the product scope changes.
+The emulator E2E proves CUEE behavior against a controlled accessibility tree. Keep live KorailTalk smoke results separate because its UI and service state can change.

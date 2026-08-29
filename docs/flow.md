@@ -1,8 +1,8 @@
-# Flow: Real Korail Demo
+# Flow: Jinju-to-Seoul Korail Demo
 
 ## Start Preconditions
 
-- User is logged in to real KorailTalk.
+- For live smoke, the user is logged in to real KorailTalk. Deterministic E2E uses `mock-korail` and needs no account.
 - KorailTalk is on the home ticket-booking screen.
 - Cuee accessibility service and bubble are enabled.
 - User says once: `진주에서 서울 가는 표 예매해줘`.
@@ -54,7 +54,7 @@ DEMO_DONE
 5. On station-search screen, attempt `ACTION_SET_TEXT("서울")`.
 6. Highlight `서울` result; user selects it.
 7. Highlight `가는날`.
-8. Set/highlight tomorrow date and 09:00 where possible; use current KorailTalk controls.
+8. Set/highlight tomorrow date and 06:00 where possible; use current KorailTalk controls.
 9. Highlight passenger field.
 10. Highlight adult `+`; user sets adult count from default 1 to adult 2.
 11. Highlight child `+`; user sets child count from default 0 to child 1.
@@ -63,7 +63,7 @@ DEMO_DONE
 14. Scan only currently visible result rows.
 15. If a valid candidate exists, highlight it with status `직접 선택`; speak once and keep the mask stable.
 16. If none exists, automatically try search policies in order:
-    `tomorrow 09:00+` -> `tomorrow 06:00+` -> `following day 09:00+` -> `following day 06:00+`.
+    `tomorrow 06:00+` -> `tomorrow all day` -> `following day 06:00+` -> `following day all day`.
 17. After user taps a highlighted candidate, highlight `예매`.
 18. After user taps `예매`, highlight `결제/발권` or equivalent safe CTA.
 19. If an intermediate `확인` dialog appears, highlight `확인`.
@@ -105,7 +105,7 @@ TTS messages:
 - Login/server/permission: `로그인이 필요해요. 로그인 후 다시 이어갈 수 있어요.`
 - Payment safety: `결제하기 버튼이에요. 결제는 직접 확인해 주세요.`
 
-Short status text examples: `진주 -> 서울`, `어른 2명`, `어린이 1명`, `내일 09시 이후`, `시간 확장`, `다음날 확인`, `추천`, `직접 선택`, `결제 전 확인`.
+Short status text examples: `진주 -> 서울`, `어른 2명`, `어린이 1명`, `내일 06시 이후`, `시간 확장`, `다음날 확인`, `추천`, `직접 선택`, `결제 전 확인`.
 
 ## Recovery
 

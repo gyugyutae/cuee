@@ -50,6 +50,34 @@ class DemoSession(
         updatedAt = clock()
     }
 
+    fun goBackToPreviousUserStep() {
+        step = when (step) {
+            DemoStep.INPUT_DEPARTURE,
+            DemoStep.SELECT_DEPARTURE_RESULT -> DemoStep.SELECT_DEPARTURE_FIELD
+            DemoStep.INPUT_ARRIVAL,
+            DemoStep.SELECT_ARRIVAL_RESULT -> DemoStep.SELECT_ARRIVAL_FIELD
+            DemoStep.SELECT_TOMORROW,
+            DemoStep.SELECT_TIME,
+            DemoStep.CONFIRM_DATE -> DemoStep.SELECT_DATE_FIELD
+            DemoStep.ADULT_PLUS_1,
+            DemoStep.CHILD_PLUS_1,
+            DemoStep.CONFIRM_PASSENGER -> DemoStep.SELECT_PASSENGER_FIELD
+            DemoStep.SCAN_VISIBLE_RESULTS,
+            DemoStep.APPLY_NEXT_SEARCH_POLICY,
+            DemoStep.SUGGEST_TRAIN -> DemoStep.SEARCH_TRAINS
+            DemoStep.FOLLOW_USER_SELECTION,
+            DemoStep.PAYMENT_ENTRY -> DemoStep.SUGGEST_TRAIN
+            DemoStep.SELECT_ARRIVAL_FIELD -> DemoStep.SELECT_DEPARTURE_FIELD
+            DemoStep.SELECT_DATE_FIELD -> DemoStep.SELECT_ARRIVAL_FIELD
+            DemoStep.SELECT_PASSENGER_FIELD -> DemoStep.SELECT_DATE_FIELD
+            DemoStep.SEARCH_TRAINS -> DemoStep.SELECT_PASSENGER_FIELD
+            DemoStep.SELECT_DEPARTURE_FIELD,
+            DemoStep.DONE -> DemoStep.SELECT_DEPARTURE_FIELD
+        }
+        retryCount = 0
+        updatedAt = clock()
+    }
+
     fun stop() {
         step = DemoStep.DONE
         updatedAt = clock()

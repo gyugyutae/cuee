@@ -45,16 +45,17 @@ class BubbleOverlayController(
         val size = context.dp(60)
         val x = if (side == BubbleEdge.LEFT) 0 else screen.width() - size
         val y = ((screen.height() - size) * yRatio).toInt().coerceIn(context.dp(48), screen.height() - size - context.dp(48))
-        val view = TextView(context).apply {
+        val view = BubbleView(context).apply {
             text = "큐"
             textSize = 20f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             background = circle(CUE_GREEN)
             elevation = context.dp(8).toFloat()
+            contentDescription = "큐 음성 안내 시작"
+            setOnClickListener { onTap() }
         }
         val lp = overlayParams(size, size, x, y)
-        view.setOnTouchListener { _, event -> handleTouch(event) }
         bubble = view
         params = lp
         windowManager.addView(view, lp)
@@ -140,9 +141,7 @@ class BubbleOverlayController(
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (!dragging) {
-                    onTap()
-                } else {
+                if (dragging) {
                     if (isInDismissArea(event.rawX, event.rawY)) {
                         hide()
                         onDismissed()
@@ -155,6 +154,20 @@ class BubbleOverlayController(
             }
         }
         return false
+    }
+
+    private inner class BubbleView(context: Context) : TextView(context) {
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            val shouldClick = event.actionMasked == MotionEvent.ACTION_UP && !dragging
+            val handled = handleTouch(event)
+            if (shouldClick) performClick()
+            return handled
+        }
+
+        override fun performClick(): Boolean {
+            super.performClick()
+            return true
+        }
     }
 
     private fun snapToSide() {

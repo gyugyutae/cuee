@@ -1,11 +1,17 @@
 .gradle/
+.kotlin/
 build/
 */build/
 app/build/
 local.properties
+keystore.properties
+*.jks
+*.keystore
 *.iml
 .idea/
 .tools/
+__pycache__/
+*.pyc
 .DS_Store
 artifacts/logs/
 artifacts/screenshots/cuee-*-command.png

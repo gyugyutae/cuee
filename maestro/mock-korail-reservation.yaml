@@ -2,13 +2,19 @@ appId: com.korail.talk
 ---
 - launchApp
 - assertVisible: "승차권 예매"
-- tapOn: "승차권 예매"
-- assertVisible: "승차권 예매"
 - assertVisible: "출발"
 - assertVisible: "도착"
-- assertVisible: "열차 조회하기"
-- tapOn: "열차 조회하기"
-- assertVisible: "열차 선택"
-- assertVisible: "KTX 123"
-- assertVisible: "다음"
-
+- assertVisible: "열차조회"
+- tapOn:
+    id: "com.korail.talk:id/v_departure_station"
+- inputText: "진주"
+- tapOn: "진주"
+- tapOn:
+    id: "com.korail.talk:id/v_arrival_station"
+- inputText: "서울"
+- tapOn: "서울"
+- tapOn:
+    id: "com.korail.talk:id/search_trains"
+- assertVisible: "열차 조회"
+- assertVisible: "KTX-산천 206"
+- assertVisible: "일반실 예매"

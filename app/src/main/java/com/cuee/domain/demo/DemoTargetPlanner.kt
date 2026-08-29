@@ -47,7 +47,40 @@ class DemoTargetPlanner(
     }
 
     private fun reconcileStep(snapshot: ScreenSnapshot, session: DemoSession) {
-        if (session.step == DemoStep.DONE || session.step == DemoStep.FOLLOW_USER_SELECTION || session.step == DemoStep.PAYMENT_ENTRY) {
+        if (session.step == DemoStep.DONE) {
+            return
+        }
+
+        if (
+            session.step in DemoStep.SCAN_VISIBLE_RESULTS..DemoStep.SUGGEST_TRAIN &&
+            snapshot.nodes.any { it.visible && it.id.contains("booking_button", ignoreCase = true) }
+        ) {
+            session.setStep(DemoStep.FOLLOW_USER_SELECTION)
+            return
+        }
+        if (session.step == DemoStep.FOLLOW_USER_SELECTION || session.step == DemoStep.PAYMENT_ENTRY) return
+
+        if (isDatePicker(snapshot)) {
+            when (session.step) {
+                DemoStep.SELECT_DATE_FIELD -> session.setStep(DemoStep.SELECT_TOMORROW)
+                DemoStep.SELECT_TOMORROW -> if (isTomorrowSelected(snapshot)) session.setStep(DemoStep.SELECT_TIME)
+                DemoStep.SELECT_TIME -> if (isPolicyHourSelected(snapshot, session)) session.setStep(DemoStep.CONFIRM_DATE)
+                else -> Unit
+            }
+            return
+        }
+
+        if (isPassengerPicker(snapshot)) {
+            when (session.step) {
+                DemoStep.SELECT_PASSENGER_FIELD -> session.setStep(DemoStep.ADULT_PLUS_1)
+                DemoStep.ADULT_PLUS_1 -> if (passengerCount(snapshot, "adult_count") >= session.plan.passengers.adults) {
+                    session.setStep(DemoStep.CHILD_PLUS_1)
+                }
+                DemoStep.CHILD_PLUS_1 -> if (passengerCount(snapshot, "child_count") >= session.plan.passengers.children) {
+                    session.setStep(DemoStep.CONFIRM_PASSENGER)
+                }
+                else -> Unit
+            }
             return
         }
 
@@ -116,6 +149,7 @@ class DemoTargetPlanner(
         if (hasStationSearchField(snapshot)) {
             return DemoGuideResult(null, advanceOnRender = true)
         }
+        if (!hasBookingHomeMarkers(snapshot)) return offFlow()
         return findByIdOrLabel(snapshot, listOf("v_departure_station", "tv_departure_station"), listOf("출발"), "departure")
             ?.copy(statusText = "진주 -> 서울")
             ?: offFlow()
@@ -125,6 +159,7 @@ class DemoTargetPlanner(
         if (hasStationSearchField(snapshot)) {
             return DemoGuideResult(null, advanceOnRender = true)
         }
+        if (!hasBookingHomeMarkers(snapshot)) return offFlow()
         return findByIdOrLabel(snapshot, listOf("v_arrival_station", "tv_arrival_station"), listOf("도착"), "arrival")
             ?.copy(statusText = "진주 -> 서울")
             ?: offFlow()
@@ -137,40 +172,99 @@ class DemoTargetPlanner(
     }
 
     private fun findSearchField(snapshot: ScreenSnapshot, station: String): DemoGuideResult {
-        val target = snapshot.nodes
-            .filter { it.enabled && it.visible && it.bounds.isValid() }
-            .filter { it.editable || it.className.orEmpty().contains("EditText", ignoreCase = true) || it.searchable().contains("검색") }
+        val target = stationSearchNodes(snapshot)
             .sortedByDescending { if (it.editable) 2 else 1 }
             .firstOrNull()
             ?.toTarget("search field")
 
         return if (target == null) {
-            DemoGuideResult(null, "검색창에 ${station}를 입력해 주세요.")
+            DemoGuideResult(null, "검색창에 ${station}${station.objectParticle()} 입력해 주세요.")
         } else {
-            DemoGuideResult(target = target, message = "검색창에 ${station}를 입력해 주세요.")
+            DemoGuideResult(target = target, message = "검색창에 ${station}${station.objectParticle()} 입력해 주세요.")
         }
     }
 
     private fun hasStationSearchField(snapshot: ScreenSnapshot): Boolean {
-        return snapshot.nodes.any { node ->
-            node.enabled &&
-                node.visible &&
-                node.bounds.isValid() &&
-                (node.editable || node.className.orEmpty().contains("EditText", ignoreCase = true)) &&
-                node.searchable().contains("역")
+        return stationSearchNodes(snapshot).isNotEmpty()
+    }
+
+    private fun stationSearchNodes(snapshot: ScreenSnapshot): List<ScreenNode> {
+        val visibleNodes = snapshot.nodes.filter { it.enabled && it.visible && it.bounds.isValid() }
+        return visibleNodes.filter { candidate ->
+            val isInput = candidate.editable || candidate.className.orEmpty().contains("EditText", ignoreCase = true)
+            if (!isInput) return@filter false
+
+            val ownSemantics = candidate.searchable().normalize()
+            val descendantSemantics = visibleNodes
+                .asSequence()
+                .filter { it.id.startsWith("${candidate.id}/") }
+                .joinToString(" ") { it.searchable() }
+                .normalize()
+            listOf("역이름", "초성입력", "역검색").any { keyword ->
+                ownSemantics.contains(keyword.normalize()) || descendantSemantics.contains(keyword.normalize())
+            }
         }
     }
 
     private fun isBookingHome(snapshot: ScreenSnapshot): Boolean {
-        return !hasStationSearchField(snapshot) &&
-            snapshot.nodes.any { it.visible && it.searchable().normalize().contains("열차조회".normalize()) } &&
-            snapshot.nodes.any { it.visible && it.id.contains("v_departure_station", ignoreCase = true) } &&
-            snapshot.nodes.any { it.visible && it.id.contains("v_arrival_station", ignoreCase = true) }
+        return !hasStationSearchField(snapshot) && hasBookingHomeMarkers(snapshot)
+    }
+
+    private fun hasBookingHomeMarkers(snapshot: ScreenSnapshot): Boolean {
+        return snapshot.nodes.any { it.visible && it.searchable().normalize().contains("열차조회".normalize()) } &&
+            snapshot.nodes.any {
+                it.visible && (it.id.contains("v_departure_station", ignoreCase = true) || it.searchable().normalize().contains("출발역"))
+            } &&
+            snapshot.nodes.any {
+                it.visible && (it.id.contains("v_arrival_station", ignoreCase = true) || it.searchable().normalize().contains("도착역"))
+            }
     }
 
     private fun isTrainResults(snapshot: ScreenSnapshot): Boolean {
         return snapshot.nodes.any { it.visible && it.searchable().normalize().contains("열차조회".normalize()) } &&
-            snapshot.nodes.any { it.visible && it.id.contains("trainList", ignoreCase = true) }
+            snapshot.nodes.any { node ->
+                node.visible &&
+                    (node.id.contains("trainList", ignoreCase = true) ||
+                        node.id.contains("reserveButton", ignoreCase = true) ||
+                        node.id.contains("firstTextView", ignoreCase = true) ||
+                        node.id.contains("secondTextView", ignoreCase = true))
+            }
+    }
+
+    private fun isDatePicker(snapshot: ScreenSnapshot): Boolean {
+        return snapshot.nodes.any { it.visible && it.id.contains("date_cell", ignoreCase = true) } &&
+            snapshot.nodes.any { it.visible && it.id.contains("hourTxt", ignoreCase = true) }
+    }
+
+    private fun isTomorrowSelected(snapshot: ScreenSnapshot): Boolean {
+        return snapshot.nodes.any { node ->
+            node.visible &&
+                node.id.contains("date_cell_tomorrow", ignoreCase = true) &&
+                node.searchable().contains("선택됨")
+        }
+    }
+
+    private fun isPolicyHourSelected(snapshot: ScreenSnapshot, session: DemoSession): Boolean {
+        val hour = session.activePolicy.earliestDepartureHour.toString().padStart(2, '0')
+        return snapshot.nodes.any { node ->
+            node.visible &&
+                node.id.contains("hourTxt$hour", ignoreCase = true) &&
+                node.searchable().contains("선택됨")
+        }
+    }
+
+    private fun isPassengerPicker(snapshot: ScreenSnapshot): Boolean {
+        return snapshot.nodes.any { it.visible && it.id.contains("adult_plus", ignoreCase = true) } &&
+            snapshot.nodes.any { it.visible && it.id.contains("child_plus", ignoreCase = true) }
+    }
+
+    private fun passengerCount(snapshot: ScreenSnapshot, idHint: String): Int {
+        return snapshot.nodes
+            .firstOrNull { it.visible && it.id.contains(idHint, ignoreCase = true) }
+            ?.text
+            ?.filter(Char::isDigit)
+            ?.toIntOrNull()
+            ?: 0
     }
 
     private fun stationApplied(snapshot: ScreenSnapshot, station: String): Boolean {
@@ -183,9 +277,8 @@ class DemoTargetPlanner(
     }
 
     private fun stationSearchText(snapshot: ScreenSnapshot): String {
-        return snapshot.nodes
-            .filter { it.enabled && it.visible && it.bounds.isValid() }
-            .firstOrNull { it.editable || it.id.contains("stationNameEdit", ignoreCase = true) }
+        return stationSearchNodes(snapshot)
+            .firstOrNull()
             ?.text
             .orEmpty()
     }
@@ -333,7 +426,7 @@ class DemoTargetPlanner(
             .filter { it.searchable().normalize().contains(text.normalize()) }
             .sortedWith(compareByDescending<ScreenNode> { it.clickable }.thenBy { it.bounds.top })
             .firstOrNull()
-            ?.let { DemoGuideResult(it.toTarget(label), timeoutMs = timeoutMs) }
+            ?.let { anchor -> DemoGuideResult(anchor.actionableNode(snapshot).toTarget(label), timeoutMs = timeoutMs) }
     }
 
     private fun findByIdOrLabel(
@@ -347,19 +440,34 @@ class DemoTargetPlanner(
             .filter { node -> idHints.any { node.id.contains(it, ignoreCase = true) } }
             .sortedWith(compareByDescending<ScreenNode> { it.clickable }.thenByDescending { it.bounds.area })
             .firstOrNull()
-        if (byId != null) return DemoGuideResult(byId.toTarget(label))
+        if (byId != null) return DemoGuideResult(byId.actionableNode(snapshot).toTarget(label))
 
         return snapshot.nodes
             .filter { it.enabled && it.visible && it.bounds.isValid() }
             .filter { node -> labels.any { node.searchable().normalize().contains(it.normalize()) } }
             .sortedWith(compareByDescending<ScreenNode> { it.clickable }.thenBy { it.bounds.top })
             .firstOrNull()
-            ?.let { DemoGuideResult(it.toTarget(label)) }
+            ?.let { anchor -> DemoGuideResult(anchor.actionableNode(snapshot).toTarget(label)) }
     }
 
     private fun offFlow(): DemoGuideResult = DemoGuideResult(null, MSG_OFF_FLOW)
 
     private fun ScreenNode.toTarget(label: String): DemoTarget = DemoTarget(id, bounds, label)
+
+    private fun ScreenNode.actionableNode(snapshot: ScreenSnapshot): ScreenNode {
+        if (clickable) return this
+        val anchor = this
+        return snapshot.nodes
+            .asSequence()
+            .filter { candidate ->
+                candidate.enabled && candidate.visible && candidate.clickable && candidate.bounds.isValid() &&
+                    (anchor.id.startsWith("${candidate.id}/") ||
+                        candidate.bounds.intersectionArea(anchor.bounds) == anchor.bounds.area)
+            }
+            .sortedWith(compareByDescending<ScreenNode> { it.depth }.thenBy { it.bounds.area })
+            .firstOrNull()
+            ?: this
+    }
 
     private fun DemoGuideResult.focusTopBand(): DemoGuideResult {
         val currentTarget = target ?: return this
@@ -386,10 +494,15 @@ class DemoTargetPlanner(
         const val MSG_TIME_FALLBACK = "시간을 맞춘 뒤 확인을 눌러주세요."
         const val MSG_PASSENGER_FALLBACK = "어른 2명, 어린이 1명으로 맞춘 뒤 확인을 눌러주세요."
         const val MSG_NO_TRAIN = "현재 조건에서는 바로 예매 가능한 좌석이 없어요. 시간을 더 넓히거나 조건을 바꾸면 이어서 찾을 수 있어요."
-        const val MSG_OFF_FLOW = "코레일톡 승차권 예매 화면으로 돌아가 주세요."
+        const val MSG_OFF_FLOW = "현재 코레일+ 화면은 아직 지원하지 않아요. 잘못된 곳을 안내하지 않도록 여기서 멈출게요. 코레일+ 홈으로 돌아간 뒤 다시 시작해 주세요."
         const val MSG_PAYMENT = "결제하기 버튼이에요. 결제는 직접 확인해 주세요."
         const val MSG_ISSUE_PAYMENT = "결제/발권 버튼이에요. 누르면 결제 직전 확인 단계로 이동해요."
         private const val ROW_TOLERANCE = 72
         private const val DATE_FIELD_TAP_BAND_HEIGHT = 72
     }
+}
+
+private fun String.objectParticle(): String {
+    val last = lastOrNull() ?: return "를"
+    return if (last in '\uAC00'..'\uD7A3' && (last.code - '\uAC00'.code) % 28 != 0) "을" else "를"
 }

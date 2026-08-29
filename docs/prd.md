@@ -14,12 +14,12 @@ Interpreted as fixed demo flow `DEMO_JINJU_TO_SEOUL`.
 
 ## Fixed Demo Parameters
 
-- App: real KorailTalk package `com.korail.talk`
+- Target app: real KorailTalk package `com.korail.talk`; deterministic E2E uses a controlled app with the same package name
 - Start screen: KorailTalk home ticket-booking screen
 - Login: user completes login before demo
 - Route: `진주` -> `서울`
 - Date search order: tomorrow first, then the following day only if needed
-- Time search order per date: 09:00 or later first, then 06:00 or later
+- Time search order per date: 06:00 or later first, then the entire day
 - Passengers: adults 2, child 1
 - Train: recommend a visible, directly bookable candidate by policy; highlight only
 - End: guide through `예매` -> `결제/발권` -> safe final `확인` if shown; then highlight payment entry and stop
@@ -40,18 +40,17 @@ Interpreted as fixed demo flow `DEMO_JINJU_TO_SEOUL`.
 
 In scope:
 
-- Real KorailTalk only.
+- Real KorailTalk is the product target; deterministic emulator E2E is the repeatable verification layer.
 - Departure/arrival station reset and station search guidance.
 - Automatic text input attempt for `진주` and `서울`; fallback to search-field highlight.
-- Guided setup for tomorrow, 09:00, adult 2, and child 1.
-- Automatic fallback search to tomorrow 06:00, following day 09:00, then following day 06:00.
+- Guided setup for tomorrow, 06:00, adult 2, and child 1.
+- Automatic fallback search to tomorrow all day, following day 06:00, then following day all day.
 - Current visible result-screen candidate analysis only; no automatic result-list scrolling for MVP.
 - Train search and recommendation guidance using direct-bookability and route-fit rules.
 - Payment-entry highlight and safe stop.
 
 Out of scope:
 
-- `mock-korail` work for this demo.
 - Login automation.
 - Payment or final purchase automation.
 - Generic arbitrary route/date/passenger parsing.
@@ -69,4 +68,5 @@ Out of scope:
 - Recommendation priority favors 서울역 direct candidates before SRT/Suseo alternatives.
 - No candidate produces a friendly, non-broken next-action message.
 - `결제하기` is highlighted with: `결제하기 버튼이에요. 결제는 직접 확인해 주세요.`
-- Unit tests pass and real-device smoke uses Maestro + ADB debug broadcast + screenshots + logcat.
+- Unit tests pass and deterministic emulator E2E reaches the payment safe-stop with screenshots and logcat assertions.
+- Current live KorailTalk compatibility is claimed only after a separate real-device smoke test.

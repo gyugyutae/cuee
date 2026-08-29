@@ -40,7 +40,7 @@ class MaskOverlayController(
         layout.maskRects
             .filter { it.isValid() }
             .forEach { rect ->
-                val view = View(context).apply { setBackgroundColor(Color.WHITE) }
+                val view = View(context).apply { setBackgroundColor(MASK_COLOR) }
                 maskViews += view
                 windowManager.addView(
                     view,
@@ -126,6 +126,7 @@ class MaskOverlayController(
     }
 
     private companion object {
+        const val MASK_COLOR = 0x9907131D.toInt()
         const val CANDIDATE_PADDING_DP = 72
         const val CLOSE_SIZE_DP = 48
         const val CLOSE_MARGIN_DP = 16

@@ -65,10 +65,10 @@ data class PassengerPlan(
 )
 
 fun defaultJinjuSeoulPolicies() = listOf(
-    SearchPolicy(dateOffsetDays = 1, earliestDepartureHour = 9, label = "내일 09시 이후"),
     SearchPolicy(dateOffsetDays = 1, earliestDepartureHour = 6, label = "내일 06시 이후"),
-    SearchPolicy(dateOffsetDays = 2, earliestDepartureHour = 9, label = "다음날 09시 이후"),
-    SearchPolicy(dateOffsetDays = 2, earliestDepartureHour = 6, label = "다음날 06시 이후")
+    SearchPolicy(dateOffsetDays = 1, earliestDepartureHour = 0, label = "내일 시간 전체"),
+    SearchPolicy(dateOffsetDays = 2, earliestDepartureHour = 6, label = "다음날 06시 이후"),
+    SearchPolicy(dateOffsetDays = 2, earliestDepartureHour = 0, label = "다음날 시간 전체")
 )
 
 enum class TrainPriority { DIRECT_BOOKABLE_VISIBLE }

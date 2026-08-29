@@ -1,10 +1,10 @@
 # ADR: Real Korail Demo
 
-## ADR-001: Real KorailTalk Only For This Demo
+## ADR-001: Two Verification Layers For This Demo
 
-Decision: test and demo against `com.korail.talk`; do not add mock-korail coverage for this flow.
+Decision: keep the product target as real KorailTalk (`com.korail.talk`), and add a deterministic `mock-korail` app with the same package name for emulator E2E and recording when a real phone/account is unavailable.
 
-Intent: the demo must prove value on the real app. Mock work would add maintenance and dilute the current goal.
+Intent: the emulator layer proves the actual CUEE APK, accessibility service, overlay, state recovery, and payment safe-stop repeatably. A separate real-device smoke test is still required to claim current live KorailTalk compatibility.
 
 ## ADR-002: Fixed Demo Command
 
@@ -38,9 +38,9 @@ Intent: status text shows what Cuee is doing without slowing the demo. Voice is 
 
 ## ADR-007: Date And Time Search Policy
 
-Decision: search tomorrow first, then the following day. For each date, search 09:00+ first, then 06:00+.
+Decision: search tomorrow first, then the following day. For each date, search 06:00+ first, then the entire day.
 
-Intent: preserve the user's likely date preference before changing date. 06:00+ improves success without recommending unrealistic overnight departures.
+Intent: preserve the user's likely date preference before changing date. Start with practical daytime trains, then widen the same date before moving to the following day.
 
 ## ADR-008: Current Visible Results Only For MVP
 

@@ -35,7 +35,7 @@ CUEE가 자동으로 입력할 수 있는 범위는 역 검색어 입력뿐입�
 - Android 10(API 29) 이상 실제 기기 또는 에뮬레이터
 - 테스트하려면 설치 및 로그인된 코레일톡 앱
 
-이 프로젝트는 API 키, 서버, `.env` 파일이 필요 없습니다. `compileSdk 35`, `minSdk 29`로 빌드합니다.
+이 프로젝트는 API 키, 서버, `.env` 파일이 필요 없습니다. `compileSdk 36`, `targetSdk 36`, `minSdk 29`로 빌드합니다.
 
 ### 2. 프로젝트 받기와 빌드
 
@@ -59,13 +59,15 @@ adb shell am start -n com.cuee/.ui.MainActivity
 
 ### 4. 처음 한 번 설정
 
-1. CUEE를 열고 마이크 권한을 허용합니다.
+1. CUEE가 어떤 화면 정보와 음성을 처리하는지 읽고 동의 여부를 선택합니다.
 2. `접근성 설정 열기`를 누릅니다.
 3. Android 설정에서 **큐** 접근성 서비스를 켭니다.
-4. CUEE로 돌아와 `큐 버튼 켜기`를 누릅니다.
-5. 코레일톡을 열면 화면 가장자리에 CUEE 버튼이 나타납니다.
+4. 음성 명령을 사용할 때만 `마이크 권한 허용`을 누릅니다.
+5. `코레일+ 열기`를 누르면 화면 가장자리에 CUEE 버튼이 나타납니다.
 
 > 접근성 서비스는 코레일톡 화면에서 다음 행동 위치를 찾는 데에만 사용합니다. 화면 원문과 음성 원문은 저장하지 않습니다.
+
+개인정보 처리방침 초안과 Play Console 제출 준비 자료는 [`docs/privacy-policy.md`](docs/privacy-policy.md)와 [`docs/release-checklist.md`](docs/release-checklist.md)에 있습니다.
 
 ## 사용 플레이북
 
@@ -81,7 +83,7 @@ adb shell am start -n com.cuee/.ui.MainActivity
 6. CUEE가 현재 보이는 열차 중 직접 예매 가능한 후보를 강조하면, 원하는 후보를 직접 선택합니다.
 7. `예매`와 결제 진입도 직접 누릅니다. 결제 단계에서는 CUEE가 안전 안내 후 종료됩니다.
 
-기본 데모 조건은 내일 09:00 이후, 어른 2명, 어린이 1명입니다. 바로 예매 가능한 좌석이 없으면 내일 06:00 이후 → 다음 날 09:00 이후 → 다음 날 06:00 이후 순서로 검색 범위를 넓힙니다.
+기본 데모 조건은 내일 06:00 이후, 어른 2명, 어린이 1명입니다. 바로 예매 가능한 좌석이 없으면 내일 시간 전체 → 다음 날 06:00 이후 → 다음 날 시간 전체 순서로 검색 범위를 넓힙니다.
 
 ### B. 짧은 안내 명령
 
@@ -119,6 +121,17 @@ adb shell am start -n com.cuee/.ui.MainActivity
 
 실제 서비스 화면은 버전에 따라 달라질 수 있으므로, 테스트 전 로그인 상태와 화면 구성을 확인하세요. 테스트 중에도 실제 예매·결제 확정은 사람이 직접 판단하고 수행해야 합니다.
 
+### Android 에뮬레이터 전체 E2E
+
+휴대폰이나 코레일 계정 없이 재현 가능한 전체 흐름은 전용 Android 에뮬레이터에서 검증합니다. `mock-korail`은 실제 코레일톡과 같은 패키지명(`com.korail.talk`)으로 고정된 화면을 제공하고, CUEE의 실제 APK·접근성 서비스·오버레이가 진주 → 서울 흐름을 끝까지 안내하는지 확인합니다.
+
+```bash
+./gradlew test assembleDebug
+python3 scripts/run_android_demo_e2e.py --adb adb
+```
+
+테스트는 출발역, 도착역, 내일 06:00, 어른 2명·어린이 1명, 열차 추천과 예매 진입을 거쳐 결제 화면에서 안전하게 멈추지 않으면 실패합니다. 이는 CUEE 자체의 재현 가능한 전체 E2E 증거이며, 실제 코레일톡 최신 버전이나 실서비스 좌석·예매 성공을 증명하지는 않습니다.
+
 ## 프로젝트 구조
 
 ```text
@@ -131,13 +144,16 @@ app/src/main/java/com/cuee/
 └── ui/             초기 설정과 CUEE 버튼 제어
 
 docs/               제품 요구사항, 흐름, 설계 결정
-maestro/            실제 기기 E2E 흐름
+maestro/            화면 스모크 테스트 흐름
+mock-korail/        재현 가능한 에뮬레이터 E2E용 화면
+scripts/            전체 E2E 실행 및 보조 스크립트
 artifacts/          데모 영상·스크린샷·온라인 전시 자료
 ```
 
 ## 데모 자료
 
-- [1분 이내 데모 영상](artifacts/cuee-korail-jinju-seoul-demo-under-60s.mp4)
+- [20초 진주 → 서울 E2E 데모 영상](artifacts/cuee-jinju-seoul-e2e-demo-20s.mp4)
+- [결제 전 안전 종료 화면](artifacts/screenshots/cuee-emulator-e2e/16-payment-safety-stop.png)
 - [온라인 전시 자료](artifacts/online-exhibition/CUEE_U300_온라인전시관_최종.pdf)
 - [제품 흐름](docs/flow.md)
 - [제품 요구사항](docs/prd.md)
@@ -150,3 +166,5 @@ CUEE는 접근성을 높이기 위한 보조 도구입니다. 사용자의 선�
 - 자동 예매·자동 결제·로그인 자동화를 하지 않습니다.
 - 민감 정보와 결제 화면에서는 안내를 중단합니다.
 - 추천은 현재 화면에 보이는 후보에 한정되며, 최종 선택과 거래 책임은 사용자에게 있습니다.
+
+20초 영상은 전용 Android 에뮬레이터에서 실제 CUEE APK와 접근성 서비스를 실행해 녹화했습니다. 상대 앱은 재현 가능한 `mock-korail`이므로 실제 코레일톡 서비스 연동 증거와는 구분됩니다.

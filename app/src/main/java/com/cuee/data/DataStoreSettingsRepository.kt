@@ -30,7 +30,7 @@ class DataStoreSettingsRepository(
         UserSettings(
             onboardingCompleted = prefs[Keys.onboardingCompleted] ?: false,
             accessibilityGuideCompleted = prefs[Keys.accessibilityGuideCompleted] ?: false,
-            consentVersion = prefs[Keys.consentVersion] ?: DEFAULT_CONSENT_VERSION,
+            consentVersion = prefs[Keys.consentVersion] ?: CURRENT_CONSENT_VERSION,
             consentAcceptedAt = prefs[Keys.consentAcceptedAt] ?: 0L,
             bubbleEnabled = prefs[Keys.bubbleEnabled] ?: true,
             bubbleEdge = prefs[Keys.bubbleEdge]?.let { runCatching { BubbleEdge.valueOf(it) }.getOrNull() }
@@ -44,9 +44,19 @@ class DataStoreSettingsRepository(
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.onboardingCompleted] = value
             if (value) {
-                prefs[Keys.consentVersion] = DEFAULT_CONSENT_VERSION
+                prefs[Keys.consentVersion] = CURRENT_CONSENT_VERSION
                 prefs[Keys.consentAcceptedAt] = System.currentTimeMillis()
             }
+        }
+    }
+
+    override suspend fun withdrawConsent() {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.onboardingCompleted] = false
+            prefs[Keys.accessibilityGuideCompleted] = false
+            prefs[Keys.consentVersion] = CURRENT_CONSENT_VERSION
+            prefs[Keys.consentAcceptedAt] = 0L
+            prefs[Keys.bubbleEnabled] = false
         }
     }
 
@@ -75,7 +85,4 @@ class DataStoreSettingsRepository(
         }
     }
 
-    private companion object {
-        const val DEFAULT_CONSENT_VERSION = "2026-05-20"
-    }
 }

@@ -33,7 +33,7 @@ fun overlayParams(
 ): WindowManager.LayoutParams {
     val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-        (if (touchable) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+        (if (touchable) WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
     return WindowManager.LayoutParams(
         width,
         height,
