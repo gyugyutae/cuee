@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build, test, detekt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test + detekt
+        run: ./gradlew test :app:detekt --stacktrace
+
+  play-policy:
+    name: Google Play policy preflight (greenlight)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install greenlight
+        run: go install github.com/RevylAI/greenlight/cmd/greenlight@latest
+
+      # 접근성 서비스는 코드로 못 없애는 정책 소명 항목(HIGH)이므로 --exit-code로 CI를 깨지 않는다.
+      # 대신 결과를 로그와 잡 요약(step summary)에 남겨 새 위반이 생기면 눈에 띄게 한다.
+      - name: greenlight playscan
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          greenlight playscan . | tee greenlight-report.txt
+          {
+            echo '### Google Play policy preflight'
+            echo '```'
+            cat greenlight-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: greenlight-report
+          path: greenlight-report.txt
