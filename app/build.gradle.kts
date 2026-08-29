@@ -82,3 +82,14 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
 }
+
+// Google Play 정책 사전 점검 (RevylAI/greenlight). greenlight가 PATH에 없으면 안내 후 건너뛴다.
+// CRITICAL/HIGH 발견 시 --exit-code로 실패. 설치: brew install revylai/tap/greenlight
+tasks.register<Exec>("playPreflight") {
+    group = "verification"
+    description = "greenlight로 Google Play 정책을 사전 점검한다."
+    workingDir = rootProject.projectDir
+    isIgnoreExitValue = false
+    val greenlight = System.getenv("GREENLIGHT_BIN") ?: "greenlight"
+    commandLine("sh", "-c", "command -v $greenlight >/dev/null 2>&1 && $greenlight playscan . --exit-code || echo 'greenlight 미설치: brew install revylai/tap/greenlight 후 다시 실행'")
+}
