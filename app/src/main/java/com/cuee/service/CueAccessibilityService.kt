@@ -78,12 +78,10 @@ class CueAccessibilityService : AccessibilityService() {
     private var awaitingGuidedTap = false
     private var guidanceTimeoutJob: Job? = null
     private var demoRecheckJob: Job? = null
-    private var demoPulseJob: Job? = null
     private var runningMetric: RunningUtMetric? = null
     private var debugReceiver: BroadcastReceiver? = null
     private var demoSession: DemoSession? = null
     private var lastDemoSpokenKey: String? = null
-    private var lastDemoPulseKey: String? = null
     private var lastInstructionMessage: String? = null
 
     override fun onServiceConnected() {
@@ -167,7 +165,6 @@ class CueAccessibilityService : AccessibilityService() {
                 demoSession?.let { session ->
                     val step = session.step
                     if (step.shouldReanalyzeWhileWaiting()) {
-                        lastDemoPulseKey = null
                         if (step != DemoStep.SELECT_DEPARTURE_RESULT && step != DemoStep.SELECT_ARRIVAL_RESULT) {
                             session.advance()
                         }
@@ -288,11 +285,9 @@ class CueAccessibilityService : AccessibilityService() {
         if (command == KorailCommand.DEMO_JINJU_TO_SEOUL) {
             demoSession = DemoSession(plan = DemoBookingPlan())
             lastDemoSpokenKey = null
-            lastDemoPulseKey = null
         } else {
             demoSession = null
             lastDemoSpokenKey = null
-            lastDemoPulseKey = null
             guideSession.begin(command)
         }
         beginMetric(command)
@@ -578,7 +573,6 @@ class CueAccessibilityService : AccessibilityService() {
         result.statusText?.let { debugLog("demo status: $it") }
         session.stop()
         lastDemoSpokenKey = null
-        lastDemoPulseKey = null
         finishMetric(StopReason.NO_TARGET, 0)
     }
 
@@ -733,30 +727,13 @@ class CueAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun scheduleDemoPulse(key: String) {
-        if (lastDemoPulseKey == key) return
-        lastDemoPulseKey = key
-        if (demoPulseJob?.isActive == true) return
-        demoPulseJob = scope.launch {
-            delay(DEMO_RECHECK_DELAY_MS)
-            if (
-                currentState != GuideState.IDLE &&
-                demoSession?.step?.shouldReanalyzeWhileWaiting() == true
-            ) {
-                analyzeCurrentScreen()
-            }
-        }
-    }
-
     private fun stopGuidance(reason: StopReason, speak: Boolean) {
         guidanceTimeoutJob?.cancel()
         demoRecheckJob?.cancel()
-        demoPulseJob?.cancel()
         if (::speechController.isInitialized) speechController.stopListening()
         if (::bubble.isInitialized) bubble.setListening(false)
         demoSession = null
         lastDemoSpokenKey = null
-        lastDemoPulseKey = null
         lastInstructionMessage = null
         if (::guideSession.isInitialized) guideSession.stop(reason)
         hideGuideOverlay()

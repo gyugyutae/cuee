@@ -47,74 +47,75 @@ class DemoTargetPlanner(
     }
 
     private fun reconcileStep(snapshot: ScreenSnapshot, session: DemoSession) {
-        if (session.step == DemoStep.DONE) {
-            return
-        }
+        if (session.step == DemoStep.DONE) return
 
-        if (
-            session.step in DemoStep.SCAN_VISIBLE_RESULTS..DemoStep.SUGGEST_TRAIN &&
-            snapshot.nodes.any { it.visible && it.id.contains("booking_button", ignoreCase = true) }
-        ) {
-            session.setStep(DemoStep.FOLLOW_USER_SELECTION)
-            return
-        }
+        if (reconcileResultsToFollowUp(snapshot, session)) return
         if (session.step == DemoStep.FOLLOW_USER_SELECTION || session.step == DemoStep.PAYMENT_ENTRY) return
 
         if (isDatePicker(snapshot)) {
-            when (session.step) {
-                DemoStep.SELECT_DATE_FIELD -> session.setStep(DemoStep.SELECT_TOMORROW)
-                DemoStep.SELECT_TOMORROW -> if (isTomorrowSelected(snapshot)) session.setStep(DemoStep.SELECT_TIME)
-                DemoStep.SELECT_TIME -> if (isPolicyHourSelected(snapshot, session)) session.setStep(DemoStep.CONFIRM_DATE)
-                else -> Unit
-            }
+            reconcileDatePicker(snapshot, session)
             return
         }
 
         if (isPassengerPicker(snapshot)) {
-            when (session.step) {
-                DemoStep.SELECT_PASSENGER_FIELD -> session.setStep(DemoStep.ADULT_PLUS_1)
-                DemoStep.ADULT_PLUS_1 -> if (passengerCount(snapshot, "adult_count") >= session.plan.passengers.adults) {
-                    session.setStep(DemoStep.CHILD_PLUS_1)
-                }
-                DemoStep.CHILD_PLUS_1 -> if (passengerCount(snapshot, "child_count") >= session.plan.passengers.children) {
-                    session.setStep(DemoStep.CONFIRM_PASSENGER)
-                }
-                else -> Unit
-            }
+            reconcilePassengerPicker(snapshot, session)
             return
         }
 
+        reconcileHomeAndSearch(snapshot, session)
+    }
+
+    /** 열차 결과에서 예매 버튼이 보이면 사용자 선택 단계로 넘긴다. 전이했으면 true. */
+    private fun reconcileResultsToFollowUp(snapshot: ScreenSnapshot, session: DemoSession): Boolean {
+        val bookingVisible = snapshot.nodes.any {
+            it.visible && it.id.contains("booking_button", ignoreCase = true)
+        }
+        if (session.step in DemoStep.SCAN_VISIBLE_RESULTS..DemoStep.SUGGEST_TRAIN && bookingVisible) {
+            session.setStep(DemoStep.FOLLOW_USER_SELECTION)
+            return true
+        }
+        return false
+    }
+
+    private fun reconcileDatePicker(snapshot: ScreenSnapshot, session: DemoSession) {
+        when (session.step) {
+            DemoStep.SELECT_DATE_FIELD -> session.setStep(DemoStep.SELECT_TOMORROW)
+            DemoStep.SELECT_TOMORROW -> if (isTomorrowSelected(snapshot)) session.setStep(DemoStep.SELECT_TIME)
+            DemoStep.SELECT_TIME -> if (isPolicyHourSelected(snapshot, session)) session.setStep(DemoStep.CONFIRM_DATE)
+            else -> Unit
+        }
+    }
+
+    private fun reconcilePassengerPicker(snapshot: ScreenSnapshot, session: DemoSession) {
+        when (session.step) {
+            DemoStep.SELECT_PASSENGER_FIELD -> session.setStep(DemoStep.ADULT_PLUS_1)
+            DemoStep.ADULT_PLUS_1 -> if (passengerCount(snapshot, "adult_count") >= session.plan.passengers.adults) {
+                session.setStep(DemoStep.CHILD_PLUS_1)
+            }
+            DemoStep.CHILD_PLUS_1 -> if (passengerCount(snapshot, "child_count") >= session.plan.passengers.children) {
+                session.setStep(DemoStep.CONFIRM_PASSENGER)
+            }
+            else -> Unit
+        }
+    }
+
+    private fun reconcileHomeAndSearch(snapshot: ScreenSnapshot, session: DemoSession) {
         val stationSearchOpen = hasStationSearchField(snapshot)
         val home = isBookingHome(snapshot)
         val departureApplied = stationApplied(snapshot, session.plan.departureStation)
         val arrivalApplied = stationApplied(snapshot, session.plan.arrivalStation)
 
-        if (
-            home &&
-            departureApplied &&
-            arrivalApplied &&
-            session.step <= DemoStep.SELECT_ARRIVAL_RESULT
-        ) {
+        if (home && departureApplied && arrivalApplied && session.step <= DemoStep.SELECT_ARRIVAL_RESULT) {
             session.setStep(DemoStep.SELECT_DATE_FIELD)
             return
         }
-        if (
-            home &&
-            departureApplied &&
-            session.step <= DemoStep.SELECT_DEPARTURE_RESULT
-        ) {
+        if (home && departureApplied && session.step <= DemoStep.SELECT_DEPARTURE_RESULT) {
             session.setStep(DemoStep.SELECT_ARRIVAL_FIELD)
             return
         }
 
         if (stationSearchOpen) {
-            val searchText = stationSearchText(snapshot).normalize()
-            when {
-                session.step == DemoStep.SELECT_DEPARTURE_FIELD -> session.setStep(DemoStep.INPUT_DEPARTURE)
-                session.step == DemoStep.SELECT_ARRIVAL_FIELD -> session.setStep(DemoStep.INPUT_ARRIVAL)
-                session.step == DemoStep.INPUT_DEPARTURE && searchText.contains(session.plan.departureStation.normalize()) -> session.setStep(DemoStep.SELECT_DEPARTURE_RESULT)
-                session.step == DemoStep.INPUT_ARRIVAL && searchText.contains(session.plan.arrivalStation.normalize()) -> session.setStep(DemoStep.SELECT_ARRIVAL_RESULT)
-            }
+            reconcileStationSearch(snapshot, session)
             return
         }
 
@@ -142,6 +143,16 @@ class DemoTargetPlanner(
         }
         if (isTrainResults(snapshot) && session.step < DemoStep.SCAN_VISIBLE_RESULTS) {
             session.setStep(DemoStep.SCAN_VISIBLE_RESULTS)
+        }
+    }
+
+    private fun reconcileStationSearch(snapshot: ScreenSnapshot, session: DemoSession) {
+        val searchText = stationSearchText(snapshot).normalize()
+        when {
+            session.step == DemoStep.SELECT_DEPARTURE_FIELD -> session.setStep(DemoStep.INPUT_DEPARTURE)
+            session.step == DemoStep.SELECT_ARRIVAL_FIELD -> session.setStep(DemoStep.INPUT_ARRIVAL)
+            session.step == DemoStep.INPUT_DEPARTURE && searchText.contains(session.plan.departureStation.normalize()) -> session.setStep(DemoStep.SELECT_DEPARTURE_RESULT)
+            session.step == DemoStep.INPUT_ARRIVAL && searchText.contains(session.plan.arrivalStation.normalize()) -> session.setStep(DemoStep.SELECT_ARRIVAL_RESULT)
         }
     }
 

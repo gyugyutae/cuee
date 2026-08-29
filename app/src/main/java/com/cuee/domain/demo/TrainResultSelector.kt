@@ -39,7 +39,7 @@ class TrainResultSelector(
         val trainType = trainType(rowText)
         val seatClass = seatClass(buttonText, rowText)
         val arrival = arrivalStation(rowText)
-        val excluded = excludedReason(buttonText, rowText, departureHour)
+        val excluded = excludedReason(buttonText, departureHour)
 
         if (trainType == TrainType.OTHER && seatClass == SeatClass.OTHER) return null
 
@@ -64,7 +64,7 @@ class TrainResultSelector(
         }
     }
 
-    private fun excludedReason(buttonText: String, rowText: String, departureHour: Int?): ExcludedReason? {
+    private fun excludedReason(buttonText: String, departureHour: Int?): ExcludedReason? {
         return when {
             buttonText.contains("매진") -> ExcludedReason.SOLD_OUT
             buttonText.contains("예약대기") || buttonText.contains("대기") -> ExcludedReason.WAITLIST

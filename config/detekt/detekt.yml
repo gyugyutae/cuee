@@ -1,0 +1,56 @@
+# detekt config for CUEE
+# buildUponDefaultConfig=true 이므로 여기서 명시하지 않은 규칙은 detekt 기본값을 따른다.
+# ponytail 철학에 맞춰 "오버엔지니어링/복잡도" 신호를 잡는 데 집중하고,
+# MVP 데모에서 노이즈가 큰 순수 스타일 규칙은 완화한다.
+
+build:
+  maxIssues: -1        # 리팩토링 후보 발굴 단계이므로 이슈로 빌드를 깨지 않는다.
+
+complexity:
+  active: true
+  LongMethod:
+    active: true
+    threshold: 60
+  LongParameterList:
+    active: true
+    functionThreshold: 6
+    constructorThreshold: 7
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 15
+  NestedBlockDepth:
+    active: true
+    threshold: 4
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 20
+    thresholdInClasses: 20
+  LargeClass:
+    active: true
+    threshold: 600
+
+empty-blocks:
+  active: true
+
+potential-bugs:
+  active: true
+
+style:
+  active: true
+  MagicNumber:
+    active: false      # 좌표/점수 계산이 많은 오버레이 코드에서 노이즈가 큼
+  WildcardImport:
+    active: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+  ReturnCount:
+    active: true
+    max: 4
+  UnusedPrivateMember:
+    active: true
+  UnusedPrivateProperty:
+    active: true
+
+naming:
+  active: true

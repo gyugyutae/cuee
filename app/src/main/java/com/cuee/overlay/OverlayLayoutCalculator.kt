@@ -83,31 +83,6 @@ class OverlayLayoutCalculator(
         return merged.sortedWith(compareBy<Bounds> { it.top }.thenBy { it.left })
     }
 
-    private fun mergeAdjacent(bounds: List<Bounds>): List<Bounds> {
-        var result = bounds
-        var changed: Boolean
-        do {
-            changed = false
-            val next = mutableListOf<Bounds>()
-            val consumed = BooleanArray(result.size)
-            for (index in result.indices) {
-                if (consumed[index]) continue
-                var current = result[index]
-                consumed[index] = true
-                for (candidateIndex in index + 1 until result.size) {
-                    if (!consumed[candidateIndex] && current.canMerge(result[candidateIndex])) {
-                        current = current.union(result[candidateIndex])
-                        consumed[candidateIndex] = true
-                        changed = true
-                    }
-                }
-                next += current
-            }
-            result = next
-        } while (changed)
-        return result.sortedWith(compareBy<Bounds> { it.top }.thenBy { it.left })
-    }
-
     private fun Bounds.padded(padding: Int): Bounds {
         return Bounds(
             left = left - padding,
@@ -133,12 +108,6 @@ class OverlayLayoutCalculator(
             right = maxOf(right, other.right),
             bottom = maxOf(bottom, other.bottom)
         )
-    }
-
-    private fun Bounds.canMerge(other: Bounds): Boolean {
-        val sameHeightTouching = top == other.top && bottom == other.bottom && (right == other.left || left == other.right)
-        val sameWidthTouching = left == other.left && right == other.right && (bottom == other.top || top == other.bottom)
-        return sameHeightTouching || sameWidthTouching
     }
 
     private companion object {
