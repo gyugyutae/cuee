@@ -23,12 +23,6 @@ class OverlayLayoutCalculator(
         )
     }
 
-    fun overlaps(left: Bounds, right: Bounds): Boolean = left.intersects(right)
-
-    fun padded(bounds: Bounds, screen: Bounds): Bounds {
-        return bounds.padded(candidatePaddingPx).clampedTo(screen)
-    }
-
     fun maskRectangles(screen: Bounds, holes: List<Bounds>): List<Bounds> {
         if (!screen.isValid()) return emptyList()
         if (holes.isEmpty()) return listOf(screen)

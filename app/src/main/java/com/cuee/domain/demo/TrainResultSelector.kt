@@ -23,13 +23,6 @@ class TrainResultSelector(
         )
     }
 
-    fun visibleCandidates(snapshot: ScreenSnapshot): List<TrainCandidate> {
-        return snapshot.nodes
-            .filter { it.enabled && it.bounds.isValid() }
-            .filter { it.isSeatAction() }
-            .mapNotNull { button -> candidateFor(snapshot, button) }
-    }
-
     private fun candidateFor(snapshot: ScreenSnapshot, button: ScreenNode): TrainCandidate? {
         val rowNodes = rowNodes(snapshot, button)
         val rowRaw = rowNodes.joinToString(" ") { it.searchable() }
