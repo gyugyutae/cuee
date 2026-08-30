@@ -13,7 +13,7 @@
 - [x] detekt 정적 분석 통과 (`./gradlew :app:detekt`)
 - [x] greenlight Play 정책 사전 점검: CRITICAL 0건, 유일한 HIGH는 접근성 서비스(소명 대상)
 - [x] `./gradlew clean test lint bundleRelease` 통과
-- [ ] 업로드 키로 AAB 서명 확인
+- [x] 업로드 키로 AAB 서명 확인 (`jarsigner -verify` → jar verified. 확인됨)
 - [ ] 최신 코레일+ 안전 E2E 통과
 - [ ] Android 10·13·16 및 실제 삼성 기기에서 접근성·마이크·큰 글꼴 확인
 
@@ -41,18 +41,34 @@ greenlight playscan --aab app/build/outputs/bundle/release/app-release.aab  # �
 
 ## 개발자 계정에서 진행할 항목
 
-- [ ] 개인 또는 조직 계정 유형 결정
-- [ ] Google Play 개발자 계정 생성, 비용 결제 및 본인 인증
+- [x] 개인 계정 유형으로 결정
+- [x] Google Play 개발자 계정 생성 및 $25 결제 완료
+- [ ] 본인/신원 확인 (주소지 증빙 문서 제출, 검토 대기 중)
 - [ ] 패키지명 `com.cuee` 사용 가능 여부 확인
-- [ ] 개발자명과 문의 이메일 확정
+- [x] 개발자명과 문의 이메일 확정 (CUEE / zn7013@gmail.com)
 - [x] 개인정보 처리방침의 대괄호 항목 작성 (개발자명 CUEE, zn7013@gmail.com, https://gyutaetae.github.io/cuee/privacy-policy/)
-- [ ] 위 개인정보 처리방침을 공개 HTTPS URL에 실제 게시 (GitHub Pages)
+- [x] 개인정보 처리방침 공개 HTTPS URL 게시 (GitHub Pages, HTTP 200 확인)
 - [ ] Play App Signing 활성화 및 업로드 인증서 백업
 - [ ] 앱 액세스, 광고, 콘텐츠 등급, 타깃층, Data Safety 작성
-- [ ] AccessibilityService 권한 신고와 실제 사용 영상 제출
-- [ ] 스토어 아이콘, 기능 그래픽, 스크린샷과 설명 등록
-- [ ] 내부 테스트 후 12명이 14일 연속 참여하는 비공개 테스트 진행
+- [ ] AccessibilityService 권한 신고와 실제 사용 영상 제출 (대본: `docs/accessibility-review-video-script.md`)
+- [ ] 스토어 아이콘, 기능 그래픽, 스크린샷과 설명 등록 (자산 계획: `docs/play-store-assets-plan.md`, 리스팅: `docs/play-store-listing-final.md`)
+- [ ] 12명이 14일 연속 참여하는 비공개 테스트 진행 (가이드: `docs/closed-testing-guide.md`)
 - [ ] 피드백과 Pre-launch report 문제 수정 후 프로덕션 액세스 신청
+
+## 신원 확인 대기 중 병행 가능한 작업
+
+1. 소명 영상 촬영 (`docs/accessibility-review-video-script.md`) → unlisted 업로드
+2. 스토어 그래픽 제작 (`docs/play-store-assets-plan.md`)
+3. 테스터 12명 사전 모집 (`docs/closed-testing-guide.md`)
+4. 실기기 최종 점검 (Android 10·13·16)
+
+## 관련 최종 문서
+
+- 스토어 리스팅 (복붙용): `docs/play-store-listing-final.md`
+- 그래픽 자산 계획: `docs/play-store-assets-plan.md`
+- 소명 영상 대본: `docs/accessibility-review-video-script.md`
+- 비공개 테스트 가이드: `docs/closed-testing-guide.md`
+- 접근성 신고 폼 답변: `docs/play-console-accessibility-declaration.md`
 
 ## 릴리스 키 설정
 
