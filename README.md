@@ -158,6 +158,7 @@ artifacts/          데모 영상·스크린샷·온라인 전시 자료
 - [제품 흐름](docs/flow.md)
 - [제품 요구사항](docs/prd.md)
 - [코드 구조](docs/code-architecture.md)
+- [모두의 창업 2차 기술 증거](docs/modoo-application-evidence.md)
 
 ## 안전 원칙
 

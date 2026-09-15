@@ -142,7 +142,7 @@ class MainActivity : Activity() {
             section("삭제와 철회")
             body("앱의 저장공간을 삭제하거나 앱을 제거하면 기기에 저장된 정보가 삭제됩니다. 홈 화면의 ‘접근성 기능 동의 철회’를 누르면 큐의 안내가 중지됩니다.")
             section("문의")
-            body("출시 전 Play Store에 표시할 개발자 연락처를 확정한 뒤 이 항목과 공개 웹 문서에 동일하게 기재합니다.")
+            body("개발자 또는 운영 주체: CUEE\n문의 이메일: zn7013@gmail.com\n개인정보 처리방침: https://gyutaetae.github.io/cuee/privacy-policy/")
             primaryButton("돌아가기") { render() }
         })
     }
