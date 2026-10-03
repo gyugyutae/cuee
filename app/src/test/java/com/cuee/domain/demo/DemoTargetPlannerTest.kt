@@ -116,6 +116,34 @@ class DemoTargetPlannerTest {
     }
 
     @Test
+    fun currentOptionsPlanGoesStraightToTrainSearchAfterRoute() {
+        val session = DemoSession(
+            plan = DemoBookingPlan(
+                departureStation = "서울",
+                arrivalStation = "부산",
+                useCurrentTravelOptions = true
+            ),
+            initialStep = DemoStep.SELECT_ARRIVAL_RESULT,
+            clock = { 1L }
+        )
+
+        val result = planner.plan(
+            snapshot(
+                node(id = "departure", text = "서울", clickable = true),
+                node(id = "arrival", text = "부산", clickable = true),
+                node(id = "search", text = "열차 조회", clickable = true),
+                node(id = "departure-label", text = "출발역"),
+                node(id = "arrival-label", text = "도착역")
+            ),
+            session
+        )
+
+        assertEquals(DemoStep.SEARCH_TRAINS, session.step)
+        assertEquals("train search", result.target?.label)
+        assertEquals("현재 설정으로 조회", result.statusText)
+    }
+
+    @Test
     fun recognizesKorailPlusComposeStationSearchFromDescendantSemantics() {
         val session = DemoSession(initialStep = DemoStep.SELECT_DEPARTURE_FIELD, clock = { 1L })
         val editTextId = "root/0/0/0/0/1"
@@ -275,6 +303,73 @@ class DemoTargetPlannerTest {
 
         assertEquals("KTX seat", result.target?.label)
         assertEquals("com.korail.talk:id/firstTextView", result.target?.nodeId)
+    }
+
+    @Test
+    fun recognizesComposeCalendarAndCheckedDateParent() {
+        val session = DemoSession(initialStep = DemoStep.SELECT_DATE_FIELD, clock = { 1L })
+        val screen = snapshot(
+            node("title", "가는날 선택", top = 20),
+            node("time-title", "시간대 선택", top = 400),
+            node("root/date", null, top = 100, clickable = true).copy(checked = true),
+            node("root/date/label", null, top = 100, contentDescription = "5월 25일 (월)"),
+            node("hour", "06시", top = 500)
+        )
+        assertEquals("root/date", planner.plan(screen, session).target?.nodeId)
+        assertEquals(DemoStep.SELECT_TOMORROW, session.step)
+        assertEquals("hour", planner.plan(screen, session).target?.nodeId)
+        assertEquals(DemoStep.SELECT_TIME, session.step)
+    }
+
+    @Test
+    fun confirmsUnpaddedComposeDateOnHome() {
+        val session = DemoSession(initialStep = DemoStep.CONFIRM_DATE, clock = { 1L })
+        planner.plan(snapshot(
+            node("departure", "출발역 진주"),
+            node("arrival", "도착역 서울"),
+            node("date", "2026년 5월 25일 (월) 6시 이후"),
+            node("search", "열차 조회"),
+            node("passenger", "인원 어른 1명")
+        ), session)
+        assertEquals(DemoStep.SELECT_PASSENGER_FIELD, session.step)
+    }
+
+    @Test
+    fun recognizesComposePassengerCountAndIncreaseControl() {
+        val session = DemoSession(initialStep = DemoStep.ADULT_PLUS_1, clock = { 1L })
+        val result = planner.plan(snapshot(
+            node("title", "인원 선택"),
+            node("adult", "어른", top = 100),
+            node("adult-count", "2", top = 120, left = 400),
+            node("adult-increase", null, top = 120, left = 600, contentDescription = "어른 인원증가"),
+            node("child", "어린이", top = 300),
+            node("child-count", "0", top = 320, left = 400),
+            node("root/plus", null, top = 320, left = 600, clickable = true),
+            node("root/plus/label", null, top = 320, left = 600, contentDescription = "어린이 인원증가")
+        ), session)
+        assertEquals(DemoStep.CHILD_PLUS_1, session.step)
+        assertEquals("root/plus", result.target?.nodeId)
+    }
+
+    @Test
+    fun sixOClockDoesNotMatchSixteenOClock() {
+        val session = DemoSession(initialStep = DemoStep.SELECT_TIME, clock = { 1L })
+        val result = planner.plan(snapshot(node("time", "16시")), session)
+        assertEquals(null, result.target)
+    }
+
+    @Test
+    fun recognizesCheckedHourAndComposeConfirmation() {
+        val session = DemoSession(initialStep = DemoStep.SELECT_TIME, clock = { 1L })
+        val result = planner.plan(snapshot(
+            node("title", "가는날 선택", top = 20),
+            node("time-title", "시간대 선택", top = 400),
+            node("root/hour", null, top = 500, clickable = true).copy(checked = true),
+            node("root/hour/label", "06시", top = 500),
+            node("confirm", "선택 완료", top = 700, clickable = true)
+        ), session)
+        assertEquals(DemoStep.CONFIRM_DATE, session.step)
+        assertEquals("confirm", result.target?.nodeId)
     }
 
     private fun snapshot(vararg nodes: ScreenNode): ScreenSnapshot {

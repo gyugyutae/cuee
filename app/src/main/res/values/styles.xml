@@ -3,8 +3,10 @@
     <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">#2F9E44</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <string name="accessibility_service_description">인지적·디지털 사용의 어려움이 있는 사용자를 위해 코레일+ 화면의 글자와 버튼 위치를 읽고 다음 행동을 안내합니다. 로그인, 열차 선택, 예매와 결제는 대신 실행하지 않습니다.</string>

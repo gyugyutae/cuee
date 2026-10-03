@@ -86,6 +86,25 @@ class KorailTargetScorerTest {
     }
 
     @Test
+    fun scoresDepartureStationAccessibilityDescription() {
+        val candidates = scorer.score(
+            snapshot(
+                node(
+                    id = "departure",
+                    text = null,
+                    contentDescription = "출발역선택",
+                    clickable = false,
+                    className = "android.view.View"
+                )
+            ),
+            KorailCommand.SELECT_DEPARTURE_STATION
+        )
+
+        assertEquals("departure", candidates.single().nodeId)
+        assertTrue(candidates.single().score >= 65)
+    }
+
+    @Test
     fun givesTicketConfirmationEntryPriorityOverReservationHistory() {
         val candidates = scorer.score(
             snapshot(

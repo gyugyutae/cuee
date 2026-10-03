@@ -9,8 +9,10 @@
 - [x] 접근성 정보 사용 고지, 명시적 동의, 거부 및 철회
 - [x] 마이크 권한을 기능 설명 뒤 사용자 행동으로 요청
 - [x] 앱 내부 개인정보 처리방침
+- [x] 앱 내부 개인정보 처리방침 문의처를 공개 정책과 일치시킴
+- [x] Android 11+ 음성 인식/TTS 서비스 조회 선언
 - [x] 백업 및 기기 전송에서 로컬 설정·사용 결과 제외
-- [x] detekt 정적 분석 통과 (`./gradlew :app:detekt`)
+- [ ] detekt 46개 경고 정리 (`maxIssues=-1`이라 현재 명령 성공은 무경고 통과가 아님)
 - [x] greenlight Play 정책 사전 점검: CRITICAL 0건, 유일한 HIGH는 접근성 서비스(소명 대상)
 - [x] `./gradlew clean test lint bundleRelease` 통과
 - [x] 업로드 키로 AAB 서명 확인 (`jarsigner -verify` → jar verified. 확인됨)
@@ -52,6 +54,8 @@ greenlight playscan --aab app/build/outputs/bundle/release/app-release.aab  # �
 - [ ] 앱 액세스, 광고, 콘텐츠 등급, 타깃층, Data Safety 작성
 - [ ] AccessibilityService 권한 신고와 실제 사용 영상 제출 (대본: `docs/accessibility-review-video-script.md`)
 - [ ] 스토어 아이콘, 기능 그래픽, 스크린샷과 설명 등록 (자산 계획: `docs/play-store-assets-plan.md`, 리스팅: `docs/play-store-listing-final.md`)
+- [ ] 스토어용 512×512 아이콘과 1024×500 기능 그래픽 실제 파일 생성
+- [ ] 휴대전화 스크린샷을 긴 변 ≤ 짧은 변×2로 다시 촬영/편집 (현재 1080×2340 후보는 규격 초과)
 - [ ] 12명이 14일 연속 참여하는 비공개 테스트 진행 (가이드: `docs/closed-testing-guide.md`)
 - [ ] 피드백과 Pre-launch report 문제 수정 후 프로덕션 액세스 신청
 

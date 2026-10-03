@@ -11,12 +11,12 @@ class DemoTargetPlanner(
     fun plan(snapshot: ScreenSnapshot, session: DemoSession): DemoGuideResult {
         reconcileStep(snapshot, session)
         return when (session.step) {
-            DemoStep.SELECT_DEPARTURE_FIELD -> findDepartureField(snapshot)
+            DemoStep.SELECT_DEPARTURE_FIELD -> findDepartureField(snapshot, session)
             DemoStep.INPUT_DEPARTURE -> findSearchField(snapshot, session.plan.departureStation)
-            DemoStep.SELECT_DEPARTURE_RESULT -> findStationResult(snapshot, session.plan.departureStation)
-            DemoStep.SELECT_ARRIVAL_FIELD -> findArrivalField(snapshot)
+            DemoStep.SELECT_DEPARTURE_RESULT -> findStationResult(snapshot, session.plan.departureStation, session)
+            DemoStep.SELECT_ARRIVAL_FIELD -> findArrivalField(snapshot, session)
             DemoStep.INPUT_ARRIVAL -> findSearchField(snapshot, session.plan.arrivalStation)
-            DemoStep.SELECT_ARRIVAL_RESULT -> findStationResult(snapshot, session.plan.arrivalStation)
+            DemoStep.SELECT_ARRIVAL_RESULT -> findStationResult(snapshot, session.plan.arrivalStation, session)
             DemoStep.SELECT_DATE_FIELD -> (
                 findByIdOrLabel(snapshot, listOf("rl_going_date"), listOf("가는날", "가는 날"), "date field")
                     ?.focusTopBand()
@@ -35,9 +35,11 @@ class DemoTargetPlanner(
                 findByText(snapshot, "열차조회", "train search")
                     ?: findByText(snapshot, "조회", "train search")
                     ?: offFlow()
-                ).copy(statusText = "조회")
+                ).copy(statusText = if (session.plan.useCurrentTravelOptions) "현재 설정으로 조회" else "조회")
             DemoStep.SCAN_VISIBLE_RESULTS,
-            DemoStep.SUGGEST_TRAIN -> TrainResultSelector(session.activePolicy.earliestDepartureHour).select(snapshot)
+            DemoStep.SUGGEST_TRAIN -> TrainResultSelector(
+                if (session.plan.useCurrentTravelOptions) 0 else session.activePolicy.earliestDepartureHour
+            ).select(snapshot)
                 ?: DemoGuideResult(null, MSG_NO_TRAIN, statusText = "대안 탐색")
             DemoStep.APPLY_NEXT_SEARCH_POLICY -> DemoGuideResult(null, statusText = session.activePolicy.label, advanceOnRender = true)
             DemoStep.FOLLOW_USER_SELECTION -> findFollowUpCta(snapshot)
@@ -80,7 +82,7 @@ class DemoTargetPlanner(
     private fun reconcileDatePicker(snapshot: ScreenSnapshot, session: DemoSession) {
         when (session.step) {
             DemoStep.SELECT_DATE_FIELD -> session.setStep(DemoStep.SELECT_TOMORROW)
-            DemoStep.SELECT_TOMORROW -> if (isTomorrowSelected(snapshot)) session.setStep(DemoStep.SELECT_TIME)
+            DemoStep.SELECT_TOMORROW -> if (isPolicyDateSelected(snapshot, session)) session.setStep(DemoStep.SELECT_TIME)
             DemoStep.SELECT_TIME -> if (isPolicyHourSelected(snapshot, session)) session.setStep(DemoStep.CONFIRM_DATE)
             else -> Unit
         }
@@ -104,9 +106,10 @@ class DemoTargetPlanner(
         val home = isBookingHome(snapshot)
         val departureApplied = stationApplied(snapshot, session.plan.departureStation)
         val arrivalApplied = stationApplied(snapshot, session.plan.arrivalStation)
+        val nextStepAfterRoute = if (session.plan.useCurrentTravelOptions) DemoStep.SEARCH_TRAINS else DemoStep.SELECT_DATE_FIELD
 
         if (home && departureApplied && arrivalApplied && session.step <= DemoStep.SELECT_ARRIVAL_RESULT) {
-            session.setStep(DemoStep.SELECT_DATE_FIELD)
+            session.setStep(nextStepAfterRoute)
             return
         }
         if (home && departureApplied && session.step <= DemoStep.SELECT_DEPARTURE_RESULT) {
@@ -124,7 +127,7 @@ class DemoTargetPlanner(
             return
         }
         if (home && departureApplied && arrivalApplied && session.step == DemoStep.SELECT_ARRIVAL_RESULT) {
-            session.setStep(DemoStep.SELECT_DATE_FIELD)
+            session.setStep(nextStepAfterRoute)
             return
         }
         if (
@@ -156,23 +159,23 @@ class DemoTargetPlanner(
         }
     }
 
-    private fun findDepartureField(snapshot: ScreenSnapshot): DemoGuideResult {
+    private fun findDepartureField(snapshot: ScreenSnapshot, session: DemoSession): DemoGuideResult {
         if (hasStationSearchField(snapshot)) {
             return DemoGuideResult(null, advanceOnRender = true)
         }
         if (!hasBookingHomeMarkers(snapshot)) return offFlow()
         return findByIdOrLabel(snapshot, listOf("v_departure_station", "tv_departure_station"), listOf("출발"), "departure")
-            ?.copy(statusText = "진주 -> 서울")
+            ?.copy(statusText = session.plan.routeLabel)
             ?: offFlow()
     }
 
-    private fun findArrivalField(snapshot: ScreenSnapshot): DemoGuideResult {
+    private fun findArrivalField(snapshot: ScreenSnapshot, session: DemoSession): DemoGuideResult {
         if (hasStationSearchField(snapshot)) {
             return DemoGuideResult(null, advanceOnRender = true)
         }
         if (!hasBookingHomeMarkers(snapshot)) return offFlow()
         return findByIdOrLabel(snapshot, listOf("v_arrival_station", "tv_arrival_station"), listOf("도착"), "arrival")
-            ?.copy(statusText = "진주 -> 서울")
+            ?.copy(statusText = session.plan.routeLabel)
             ?: offFlow()
     }
 
@@ -195,7 +198,7 @@ class DemoTargetPlanner(
         }
     }
 
-    private fun hasStationSearchField(snapshot: ScreenSnapshot): Boolean {
+    fun hasStationSearchField(snapshot: ScreenSnapshot): Boolean {
         return stationSearchNodes(snapshot).isNotEmpty()
     }
 
@@ -243,15 +246,19 @@ class DemoTargetPlanner(
     }
 
     private fun isDatePicker(snapshot: ScreenSnapshot): Boolean {
+        if (snapshot.nodes.any { it.visible && it.text?.normalize() == "시간대선택" } &&
+            snapshot.nodes.any { it.visible && it.text?.normalize() == "가는날선택" }) return true
         return snapshot.nodes.any { it.visible && it.id.contains("date_cell", ignoreCase = true) } &&
             snapshot.nodes.any { it.visible && it.id.contains("hourTxt", ignoreCase = true) }
     }
 
-    private fun isTomorrowSelected(snapshot: ScreenSnapshot): Boolean {
+    private fun isPolicyDateSelected(snapshot: ScreenSnapshot, session: DemoSession): Boolean {
+        val date = today().plusDays(session.activePolicy.dateOffsetDays)
         return snapshot.nodes.any { node ->
             node.visible &&
-                node.id.contains("date_cell_tomorrow", ignoreCase = true) &&
-                node.searchable().contains("선택됨")
+                ((node.id.contains("date_cell_tomorrow", ignoreCase = true) &&
+                    session.activePolicy.dateOffsetDays == 1L && node.searchable().contains("선택됨")) ||
+                    (node.matchesDate(date) && node.isMarkedSelected(snapshot)))
         }
     }
 
@@ -259,23 +266,49 @@ class DemoTargetPlanner(
         val hour = session.activePolicy.earliestDepartureHour.toString().padStart(2, '0')
         return snapshot.nodes.any { node ->
             node.visible &&
-                node.id.contains("hourTxt$hour", ignoreCase = true) &&
-                node.searchable().contains("선택됨")
+                ((node.id.contains("hourTxt$hour", ignoreCase = true) && node.searchable().contains("선택됨")) ||
+                    (node.matchesHour(session.activePolicy.earliestDepartureHour) && node.isMarkedSelected(snapshot)))
         }
     }
 
+    private fun ScreenNode.isMarkedSelected(snapshot: ScreenSnapshot): Boolean {
+        val control = actionableNode(snapshot)
+        return checked || selected || control.checked || control.selected
+    }
+
+    private fun ScreenNode.matchesDate(date: LocalDate): Boolean {
+        val pattern = Regex("(?<![0-9])0?${date.monthValue}월\\s*0?${date.dayOfMonth}일(?![0-9])")
+        return listOfNotNull(text, contentDescription).any { pattern.containsMatchIn(it) }
+    }
+
+    private fun ScreenNode.matchesHour(hour: Int): Boolean {
+        val pattern = Regex("0?$hour(?:시|:00)")
+        return listOfNotNull(text, contentDescription).any { pattern.matches(it.trim()) } ||
+            (id.contains("hourTxt", ignoreCase = true) && text?.toIntOrNull() == hour)
+    }
+
     private fun isPassengerPicker(snapshot: ScreenSnapshot): Boolean {
+        if (snapshot.nodes.any { it.visible && it.text?.normalize() == "인원선택" } &&
+            snapshot.nodes.any { it.visible && it.contentDescription?.contains("어른 인원증가") == true }) return true
         return snapshot.nodes.any { it.visible && it.id.contains("adult_plus", ignoreCase = true) } &&
             snapshot.nodes.any { it.visible && it.id.contains("child_plus", ignoreCase = true) }
     }
 
     private fun passengerCount(snapshot: ScreenSnapshot, idHint: String): Int {
-        return snapshot.nodes
+        val byId = snapshot.nodes
             .firstOrNull { it.visible && it.id.contains(idHint, ignoreCase = true) }
             ?.text
             ?.filter(Char::isDigit)
             ?.toIntOrNull()
-            ?: 0
+        if (byId != null) return byId
+        val label = if (idHint == "adult_count") "어른" else "어린이"
+        val increase = snapshot.nodes.firstOrNull {
+            it.visible && it.contentDescription == "$label 인원증가"
+        } ?: return 0
+        return snapshot.nodes.firstOrNull {
+            it.visible && it.text?.toIntOrNull() != null && it.bounds.right <= increase.bounds.left &&
+                it.bounds.top <= increase.bounds.bottom && it.bounds.bottom >= increase.bounds.top
+        }?.text?.toIntOrNull() ?: 0
     }
 
     private fun stationApplied(snapshot: ScreenSnapshot, station: String): Boolean {
@@ -296,26 +329,22 @@ class DemoTargetPlanner(
 
     private fun selectedDateMatchesPolicy(snapshot: ScreenSnapshot, session: DemoSession): Boolean {
         val date = today().plusDays(session.activePolicy.dateOffsetDays)
-        val month = date.monthValue.toString().padStart(2, '0')
-        val day = date.dayOfMonth.toString().padStart(2, '0')
-        val target = "${date.year}년 ${month}월 ${day}일"
         return snapshot.nodes.any { node ->
             node.visible &&
-                (node.id.contains("tv_value_going_date", ignoreCase = true) || node.searchable().contains("가는날")) &&
-                node.searchable().contains(target)
+                node.matchesDate(date) &&
+                listOfNotNull(node.text, node.contentDescription).any { it.contains("${date.year}년") }
         }
     }
 
     private fun passengerSummaryMatches(snapshot: ScreenSnapshot): Boolean {
         return snapshot.nodes.any { node ->
             node.visible &&
-                node.id.contains("tv_value_passenger", ignoreCase = true) &&
                 node.searchable().contains("어른 2") &&
                 node.searchable().contains("어린이 1")
         }
     }
 
-    private fun findStationResult(snapshot: ScreenSnapshot, station: String): DemoGuideResult {
+    private fun findStationResult(snapshot: ScreenSnapshot, station: String, session: DemoSession): DemoGuideResult {
         val onBookingHome = snapshot.nodes.any { it.visible && it.searchable().normalize().contains("열차조회".normalize()) }
         val stationApplied = snapshot.nodes.any { node ->
             node.visible &&
@@ -329,15 +358,14 @@ class DemoTargetPlanner(
         val stationResult = snapshot.nodes
             .filter { it.enabled && it.visible && it.bounds.isValid() }
             .filter { node ->
-                val raw = node.searchable()
-                val normalized = raw.normalize()
-                !raw.contains("-") &&
-                    (normalized == station.normalize() || normalized.contains(station.normalize()))
+                listOfNotNull(node.text, node.contentDescription).any { value ->
+                    value.normalize().removeSuffix("선택").removeSuffix("역") == station.normalize().removeSuffix("역")
+                }
             }
             .filterNot { it.editable }
             .sortedWith(compareByDescending<ScreenNode> { it.clickable }.thenBy { it.bounds.top })
             .firstOrNull()
-            ?.let { DemoGuideResult(it.toTarget("$station result"), statusText = "진주 -> 서울") }
+            ?.let { DemoGuideResult(it.actionableNode(snapshot).toTarget("$station result"), statusText = session.plan.routeLabel) }
         if (stationResult != null) return stationResult
 
         return offFlow()
@@ -351,31 +379,21 @@ class DemoTargetPlanner(
             .filter {
                 it.text.orEmpty().normalize() == day ||
                     it.contentDescription.orEmpty().normalize() == day ||
-                    it.searchable().normalize().contains("${date.monthValue}월${day}일".normalize())
+                    it.matchesDate(date)
             }
             .sortedBy { it.bounds.top * 10_000 + it.bounds.left }
             .firstOrNull()
-            ?.let { DemoGuideResult(it.toTarget("date"), statusText = if (offsetDays == 1L) "내일" else "다음날") }
+            ?.let { DemoGuideResult(it.actionableNode(snapshot).toTarget("date"), statusText = if (offsetDays == 1L) "내일" else "다음날") }
             ?: offFlow()
     }
 
     private fun findTime(snapshot: ScreenSnapshot, hour: Int): DemoGuideResult {
         val padded = hour.toString().padStart(2, '0')
         return snapshot.nodes
-            .filter { it.enabled && it.bounds.isValid() }
-            .filter { it.id.contains("hourTxt", ignoreCase = true) || it.searchable().normalize().contains("시") }
-            .filter {
-                val text = it.searchable().normalize()
-                val ownText = it.text.orEmpty().normalize()
-                ownText == hour.toString() ||
-                    ownText == padded ||
-                    text.contains("${hour}시") ||
-                    text.contains("${padded}시") ||
-                    text.contains("${padded}00")
-            }
+            .filter { it.enabled && it.visible && it.bounds.isValid() && it.matchesHour(hour) }
             .sortedBy { it.bounds.top * 10_000 + it.bounds.left }
             .firstOrNull()
-            ?.let { DemoGuideResult(it.toTarget("${padded}:00 time"), statusText = "${padded}시 이후") }
+            ?.let { DemoGuideResult(it.actionableNode(snapshot).toTarget("${padded}:00 time"), statusText = "${padded}시 이후") }
             ?: DemoGuideResult(null, MSG_TIME_FALLBACK)
     }
 
@@ -396,11 +414,11 @@ class DemoTargetPlanner(
                 text == "+" || text.contains("증가") || text.contains("더하기") || it.id.contains("plus", ignoreCase = true)
             }
             .maxByOrNull { it.bounds.left }
-            ?.let { DemoGuideResult(it.toTarget("$label plus"), statusText = if (label == "어른") "어른 2명" else "어린이 1명") }
+            ?.let { DemoGuideResult(it.actionableNode(snapshot).toTarget("$label plus"), statusText = if (label == "어른") "어른 2명" else "어린이 1명") }
     }
 
     private fun findConfirm(snapshot: ScreenSnapshot): DemoGuideResult {
-        return findByText(snapshot, "확인", "confirm") ?: offFlow()
+        return findByText(snapshot, "선택 완료", "confirm") ?: findByText(snapshot, "확인", "confirm") ?: offFlow()
     }
 
     private fun findPayment(snapshot: ScreenSnapshot): DemoGuideResult {

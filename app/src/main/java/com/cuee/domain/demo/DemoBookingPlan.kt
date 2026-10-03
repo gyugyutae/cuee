@@ -4,8 +4,11 @@ data class DemoBookingPlan(
     val departureStation: String = "진주",
     val arrivalStation: String = "서울",
     val searchPolicies: List<SearchPolicy> = defaultJinjuSeoulPolicies(),
-    val passengers: PassengerPlan = PassengerPlan(adults = 2, children = 1)
-)
+    val passengers: PassengerPlan = PassengerPlan(adults = 2, children = 1),
+    val useCurrentTravelOptions: Boolean = false
+) {
+    val routeLabel: String get() = "$departureStation -> $arrivalStation"
+}
 
 data class PassengerPlan(
     val adults: Int,

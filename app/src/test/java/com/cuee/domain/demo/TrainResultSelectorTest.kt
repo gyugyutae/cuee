@@ -56,6 +56,13 @@ class TrainResultSelectorTest {
         assertEquals("reserve-300", result?.target?.nodeId)
     }
 
+    @Test
+    fun doesNotRecommendInvisibleSeat() {
+        val invisibleRow = row(100, "KTX", "10:00", "일반실", "", "예매")
+            .map { it.copy(visible = false) }
+        assertNull(selector.select(snapshot(invisibleRow)))
+    }
+
     private fun row(
         top: Int,
         train: String,

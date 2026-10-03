@@ -5,6 +5,12 @@
 
     <queries>
         <package android:name="com.korail.talk" />
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <application
@@ -25,6 +31,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".ui.JourneyActivity" android:exported="false" />
 
         <service
             android:name=".service.CueAccessibilityService"

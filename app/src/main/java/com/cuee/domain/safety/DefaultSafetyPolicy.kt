@@ -19,7 +19,10 @@ class DefaultSafetyPolicy(
             .normalizeForSafety()
 
         sensitivePolicies.firstOrNull { policy ->
-            policy.keywords.any { keyword -> screenText.contains(keyword.normalizeForSafety()) }
+            policy.keywords.any { keyword -> screenText.contains(keyword.normalizeForSafety()) } ||
+                (policy.id == SafetyPolicyId.PAYMENT && snapshot.nodes.any {
+                    it.visible && it.searchableText().normalizeForSafety() == "결제"
+                })
         }?.let { policy ->
             return SafetyDecision(
                 allowed = false,
@@ -67,7 +70,8 @@ class DefaultSafetyPolicy(
             SensitivePolicy(
                 id = SafetyPolicyId.PAYMENT,
                 reason = StopReason.SENSITIVE_PAYMENT,
-                keywords = setOf("결제", "카드번호", "신용카드", "계좌번호", "간편결제")
+                keywords = setOf("결제하기", "결제수단", "결제정보", "결제금액", "결제예정", "결제완료",
+                    "카드번호", "신용카드", "계좌번호", "간편결제")
             ),
             SensitivePolicy(
                 id = SafetyPolicyId.RESERVATION_CONFIRMATION,

@@ -79,7 +79,6 @@ public class MockKorailActivity extends Activity {
     }
 
     private void showStationSearch(boolean selectingDeparture) {
-        String target = selectingDeparture ? "진주" : "서울";
         LinearLayout root = base();
         header(root, selectingDeparture ? "출발역 선택" : "도착역 선택", "역 이름을 검색하세요");
 
@@ -93,18 +92,23 @@ public class MockKorailActivity extends Activity {
         search.setBackgroundColor(LIGHT_GRAY);
         root.addView(search, lp(-1, dp(64), 0, 0, 0, 18));
 
-        TextView result = secondaryButton(R.id.station_result, target, () -> {
-            if (selectingDeparture) departure = target; else arrival = target;
+        TextView result = secondaryButton(R.id.station_result, "", () -> {
+            String selected = search.getText().toString().trim();
+            if (selected.isEmpty()) return;
+            if (selectingDeparture) departure = selected; else arrival = selected;
             showReservation();
         });
-        result.setContentDescription(target + "역 검색 결과");
+        result.setContentDescription("역 검색 결과");
         result.setVisibility(View.INVISIBLE);
         root.addView(result, lp(-1, dp(64), 0, 0, 0, 12));
 
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                result.setVisibility(s.toString().contains(target) ? View.VISIBLE : View.INVISIBLE);
+                String candidate = s.toString().trim();
+                result.setText(candidate);
+                result.setContentDescription(candidate + "역 검색 결과");
+                result.setVisibility(candidate.isEmpty() ? View.INVISIBLE : View.VISIBLE);
             }
             @Override public void afterTextChanged(Editable s) {}
         });
@@ -186,19 +190,22 @@ public class MockKorailActivity extends Activity {
 
     private void showTrainList() {
         LinearLayout root = base();
-        header(root, "열차 조회", "진주 → 서울 · " + dateLabel());
+        header(root, "열차 조회", departure + " → " + arrival + " · " + dateLabel());
         LinearLayout list = new LinearLayout(this);
         list.setId(R.id.trainList);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.addView(trainRow("KTX 204", "06:10", "09:52", "서울", "매진", R.id.reserveButton204, null));
-        list.addView(trainRow("KTX-산천 206", "08:56", "12:25", "서울", "일반실 예매", R.id.reserveButton206, this::showTrainDetail));
-        list.addView(trainRow("ITX-새마을 1112", "09:42", "14:50", "서울", "일반실 45,900원", R.id.reserveButton1112, this::showTrainDetail));
+        int firstHour = Math.max(6, departureHour);
+        int secondHour = Math.min(firstHour + 2, 23);
+        int thirdHour = Math.min(firstHour + 3, 23);
+        list.addView(trainRow("KTX 204", twoDigits(firstHour) + ":10", twoDigits((firstHour + 3) % 24) + ":52", "매진", R.id.reserveButton204, null));
+        list.addView(trainRow("KTX-산천 206", twoDigits(secondHour) + ":56", twoDigits((secondHour + 3) % 24) + ":25", "일반실 예매", R.id.reserveButton206, this::showTrainDetail));
+        list.addView(trainRow("ITX-새마을 1112", twoDigits(thirdHour) + ":42", twoDigits((thirdHour + 5) % 24) + ":50", "일반실 45,900원", R.id.reserveButton1112, this::showTrainDetail));
         root.addView(list);
         root.addView(note("CUEE는 매진·대기 후보를 제외하고 직접 예매 가능한 열차를 강조합니다."));
         setContentView(wrap(root));
     }
 
-    private LinearLayout trainRow(String train, String depart, String arrive, String destination, String action, int actionId, Runnable runnable) {
+    private LinearLayout trainRow(String train, String depart, String arrive, String action, int actionId, Runnable runnable) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -207,7 +214,7 @@ public class MockKorailActivity extends Activity {
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
         info.addView(text(train, 18, NAVY, true));
-        info.addView(text(depart + " 진주  →  " + arrive + " " + destination, 15, Color.DKGRAY, false));
+        info.addView(text(depart + " " + departure + "  →  " + arrive + " " + arrival, 15, Color.DKGRAY, false));
         row.addView(info, new LinearLayout.LayoutParams(0, dp(72), 1));
         TextView button = secondaryButton(actionId, action, runnable == null ? () -> {} : runnable);
         button.setClickable(runnable != null);

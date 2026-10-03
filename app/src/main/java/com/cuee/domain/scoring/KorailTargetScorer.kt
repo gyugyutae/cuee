@@ -22,6 +22,7 @@ class KorailTargetScorer : TargetScorer {
 
         val exactTextMatched = spec.exactKeywords.any { normalizedText.contains(it) }
         val primaryTextMatched = spec.primaryKeywords.any { normalizedText.contains(it) }
+        val primaryDescriptionMatched = spec.primaryKeywords.any { normalizedDescription.contains(it) }
         val partialTextMatched = !exactTextMatched && spec.partialKeywords.any { normalizedText.contains(it) }
         val parentMatched = spec.exactKeywords.any { normalizedParent.contains(it) } ||
             spec.partialKeywords.any { normalizedParent.contains(it) }
@@ -33,7 +34,7 @@ class KorailTargetScorer : TargetScorer {
             exactTextMatched -> score += EXACT_TEXT_SCORE + if (primaryTextMatched) PRIMARY_TEXT_BONUS else 0
             partialTextMatched || parentMatched -> score += PARTIAL_TEXT_SCORE
         }
-        if (contentDescriptionMatched) score += CONTENT_DESCRIPTION_SCORE
+        if (contentDescriptionMatched) score += CONTENT_DESCRIPTION_SCORE + if (primaryDescriptionMatched) PRIMARY_TEXT_BONUS else 0
         if (clickable) score += CLICKABLE_SCORE
 
         val classHintMatched = className.orEmpty().contains("button", ignoreCase = true) ||
@@ -81,11 +82,18 @@ class KorailTargetScorer : TargetScorer {
                 exactKeywords = setOf("승차권확인", "예매확인", "예매내역", "예약내역", "마이티켓", "나의티켓", "내승차권", "표확인"),
                 partialKeywords = setOf("승차권", "티켓", "표", "예매", "예약")
             )
-            KorailCommand.FIND_RESERVATION_START -> CommandScoringSpec(
+            KorailCommand.FIND_RESERVATION_START,
+            KorailCommand.GUIDED_ROUTE_SEARCH -> CommandScoringSpec(
                 targetType = TargetType.RESERVATION_ENTRY,
                 primaryKeywords = setOf("승차권예매", "예매하기", "기차표예매", "열차조회"),
                 exactKeywords = setOf("승차권예매", "열차예매", "예매하기", "기차표예매", "승차권예약", "열차조회"),
                 partialKeywords = setOf("예매", "예약", "열차", "기차표", "승차권")
+            )
+            KorailCommand.SELECT_DEPARTURE_STATION -> CommandScoringSpec(
+                targetType = TargetType.RESERVATION_ENTRY,
+                primaryKeywords = setOf("출발역선택"),
+                exactKeywords = setOf("출발역선택", "출발역"),
+                partialKeywords = setOf("출발역", "출발")
             )
             KorailCommand.DEMO_JINJU_TO_SEOUL -> CommandScoringSpec(
                 targetType = TargetType.RESERVATION_ENTRY,

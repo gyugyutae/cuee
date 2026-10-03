@@ -47,6 +47,31 @@ class DefaultSafetyPolicyTest {
         assertNull(decision.reason)
     }
 
+    @Test
+    fun informationalPaymentMentionDoesNotStopOrdinaryScreen() {
+        val decision = policy.evaluate(snapshot(nodes = listOf(node(text = "실제 예매와 결제는 발생하지 않습니다"))))
+
+        assertTrue(decision.allowed)
+        assertNull(decision.reason)
+    }
+
+    @Test
+    fun exactPaymentScreenTitleStillStopsGuidance() {
+        val decision = policy.evaluate(snapshot(nodes = listOf(node(text = "결제"))))
+
+        assertFalse(decision.allowed)
+        assertEquals(StopReason.SENSITIVE_PAYMENT, decision.reason)
+    }
+
+    @Test
+    fun seatGuidanceStillStopsWhenSensitiveScreenAppears() {
+        val seats = listOf(node("좌석 선택"), node("1호차"), node("예매"))
+        assertTrue(policy.evaluate(snapshot(nodes = seats)).allowed)
+        val decision = policy.evaluate(snapshot(nodes = seats + node("예매 확정")))
+        assertFalse(decision.allowed)
+        assertEquals(StopReason.SENSITIVE_CONFIRMATION, decision.reason)
+    }
+
     private fun snapshot(
         packageName: String = "com.korail.talk",
         nodes: List<ScreenNode> = emptyList()

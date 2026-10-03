@@ -57,7 +57,9 @@ class DefaultAccessibilitySnapshotMapper(
             scrollable = node.isScrollable,
             editable = node.isEditable,
             depth = depth,
-            parentHint = parentHint
+            parentHint = parentHint,
+            checked = node.isChecked,
+            selected = node.isSelected
         )
 
         val childParentHint = node.hintText()

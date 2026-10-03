@@ -9,7 +9,8 @@ data class DemoGuideResult(
     val advanceOnRender: Boolean = false,
     val autoTap: Boolean = false,
     val doneAfterRender: Boolean = false,
-    val timeoutMs: Long = DEFAULT_TIMEOUT_MS
+    val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+    val preferTopPanel: Boolean = false
 ) {
     val isGuiding: Boolean get() = target != null
 

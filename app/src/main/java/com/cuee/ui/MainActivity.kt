@@ -1,9 +1,8 @@
 package com.cuee.ui
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
-import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -12,16 +11,19 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.ViewGroup
-import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.EditText
+import com.cuee.speech.AndroidSpeechController
 import androidx.core.net.toUri
 import com.cuee.data.DataStoreSettingsRepository
 import com.cuee.data.UserSettings
 import com.cuee.data.hasCurrentConsent
+import com.cuee.domain.command.JourneyConversation
 import com.cuee.overlay.CUE_GREEN
+import com.cuee.service.CueAccessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,11 +34,15 @@ class MainActivity : Activity() {
     private val job = SupervisorJob()
     private val scope = CoroutineScope(job + Dispatchers.Main)
     private lateinit var settingsRepository: DataStoreSettingsRepository
+    private var practiceSpeech: AndroidSpeechController? = null
+    private var practicing = false
+    private val onboardingState by lazy { getSharedPreferences("onboarding_progress", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settingsRepository = DataStoreSettingsRepository(applicationContext)
-        render()
+        practicing = onboardingState.getBoolean("practice_active", false)
+        if (practicing) showPractice(onboardingState.getInt("practice_step", 0))
     }
 
     override fun onResume() {
@@ -46,18 +52,32 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         job.cancel()
+        practiceSpeech?.destroy()
         super.onDestroy()
     }
 
     private fun render() {
+        if (practicing) return
         scope.launch {
             val settings = settingsRepository.settings.first()
             when {
+                !settings.hasCurrentConsent() && !onboardingState.getBoolean("welcome_seen", false) -> showWelcome()
                 !settings.hasCurrentConsent() -> showConsentDisclosure()
                 !isCueAccessibilityEnabled() -> showAccessibilitySetup(settings)
                 else -> showHome(settings)
             }
         }
+    }
+
+    private fun showWelcome() {
+        setContentView(baseColumn {
+            title("코레일+, 큐와 함께 이용해요")
+            body("큐가 다음에 누를 곳을 알려드려요. 버튼은 직접 눌러 주세요.")
+            primaryButton("로그인 없이 시작하기") {
+                onboardingState.edit().putBoolean("welcome_seen", true).apply()
+                showConsentDisclosure()
+            }
+        })
     }
 
     private fun showConsentDisclosure() {
@@ -77,7 +97,7 @@ class MainActivity : Activity() {
             primaryButton("동의하고 계속") {
                 scope.launch {
                     settingsRepository.setOnboardingCompleted(true)
-                    showAccessibilitySetup(settingsRepository.settings.first())
+                    render()
                 }
             }
             secondaryButton("개인정보 처리방침 보기") { showPrivacyPolicy() }
@@ -103,16 +123,20 @@ class MainActivity : Activity() {
 
     private fun showHome(settings: UserSettings) {
         setContentView(baseColumn {
-            title("큐가 준비됐어요")
+            title(if (onboardingState.getBoolean("home_seen", false)) "다시 오셨어요!" else "큐가 준비됐어요")
+            onboardingState.edit().putBoolean("home_seen", true).apply()
             body("1. 코레일+를 엽니다.\n2. 화면 가장자리의 큐 버튼을 누릅니다.\n3. 원하는 도움을 말합니다.")
+            body("예: ‘서울에서 부산 가는 열차 찾아줘’")
             body("로그인, 개인정보, 열차 선택, 예매와 결제는 사용자가 직접 확인하고 진행합니다.")
 
-            if (!hasAudioPermission()) {
-                body("음성 명령을 사용하려면 마이크 권한이 필요합니다. 권한은 이 버튼을 누를 때만 요청합니다.")
-                primaryButton("마이크 권한 허용") { requestAudioPermission() }
+            primaryButton("코레일+ 켜기") {
+                scope.launch { settingsRepository.setBubbleEnabled(true); openKorailPlus() }
             }
-
-            primaryButton("코레일+ 열기") { openKorailPlus() }
+            primaryButton("연습하기") { practicing = true; showPractice(0) }
+            secondaryButton("여행 조건 입력하기") {
+                JourneyHandoff.conversation = JourneyConversation()
+                startActivity(Intent(this@MainActivity, JourneyActivity::class.java))
+            }
             secondaryButton(if (settings.bubbleEnabled) "큐 버튼 끄기" else "큐 버튼 켜기") {
                 scope.launch {
                     settingsRepository.setBubbleEnabled(!settings.bubbleEnabled)
@@ -127,6 +151,59 @@ class MainActivity : Activity() {
                 }
             }
         })
+    }
+
+    private fun showPractice(step: Int) {
+        onboardingState.edit().putBoolean("practice_active", true).putInt("practice_step", step).apply()
+        setContentView(baseColumn {
+            title("처음 사용 연습 ${step + 1}/3")
+            when (step) {
+                0 -> {
+                    body("코레일+ 화면 가장자리의 큐 버튼을 누르면 질문을 입력할 수 있어요.")
+                    primaryButton("큐") { showPractice(1) }
+                }
+                1 -> {
+                    body("말하거나 글자로 원하는 도움을 입력해 보세요.")
+                    val field = EditText(this@MainActivity).apply { hint = "예: 서울에서 부산"; isSaveEnabled = false }
+                    addView(field, matchWrap())
+                    primaryButton("글자로 질문하기") { if (field.text.isNotBlank()) { field.text.clear(); showPractice(2) } }
+                    primaryButton("마이크로 질문하기") {
+                        if (!hasAudioPermission()) requestAudioPermission()
+                        else {
+                            startPracticeListening()
+                        }
+                    }
+                }
+                else -> {
+                    body("강조된 버튼은 직접 눌러 주세요. 이 화면은 실제 예매가 없는 연습이에요.")
+                    primaryButton("강조된 연습 버튼 누르기") {
+                        onboardingState.edit().putBoolean("practice_completed", true).apply()
+                        onboardingState.edit().putBoolean("practice_active", false).apply()
+                        practicing = false
+                        render()
+                    }
+                }
+            }
+            secondaryButton("연습 건너뛰기") {
+                onboardingState.edit().putBoolean("practice_active", false).apply()
+                practicing = false; practiceSpeech?.stopListening(); render()
+            }
+        })
+    }
+
+    private fun startPracticeListening() {
+        practiceSpeech?.destroy()
+        practiceSpeech = AndroidSpeechController(this,
+            onResult = { showPractice(2) }, onError = { showPractice(1) })
+        practiceSpeech?.startListening()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_RECORD_AUDIO && practicing) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startPracticeListening()
+            else showPractice(1)
+        }
     }
 
     private fun showPrivacyPolicy() {
@@ -212,11 +289,9 @@ class MainActivity : Activity() {
     )
 
     private fun isCueAccessibilityEnabled(): Boolean {
-        val manager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-        return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any { service ->
-            val info = service.resolveInfo.serviceInfo
-            info.packageName == packageName && info.name == "com.cuee.service.CueAccessibilityService"
-        }
+        val expected = ComponentName(this, CueAccessibilityService::class.java)
+        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        return enabled.orEmpty().split(':').any { ComponentName.unflattenFromString(it) == expected }
     }
 
     private fun hasAudioPermission(): Boolean =

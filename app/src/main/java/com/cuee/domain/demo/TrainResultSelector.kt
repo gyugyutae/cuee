@@ -9,7 +9,7 @@ class TrainResultSelector(
 ) {
     fun select(snapshot: ScreenSnapshot): DemoGuideResult? {
         val candidates = snapshot.nodes
-            .filter { it.enabled && it.bounds.isValid() }
+            .filter { it.enabled && it.visible && it.bounds.isValid() }
             .filter { it.isSeatAction() }
             .mapNotNull { button -> candidateFor(snapshot, button) }
             .filter { it.excludedReason == null }
@@ -51,7 +51,7 @@ class TrainResultSelector(
 
     private fun rowNodes(snapshot: ScreenSnapshot, button: ScreenNode): List<ScreenNode> {
         return snapshot.nodes.filter { node ->
-            node.bounds.isValid() &&
+            node.visible && node.bounds.isValid() &&
                 node.bounds.top < button.bounds.bottom + ROW_TOLERANCE &&
                 node.bounds.bottom > button.bounds.top - ROW_TOLERANCE
         }

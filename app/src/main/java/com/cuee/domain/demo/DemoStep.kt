@@ -30,14 +30,14 @@ fun DemoStep.next(): DemoStep {
 }
 
 /** 각 단계에서 사용자에게 읽어 줄 기본 안내 문구. 화면 분석 결과에 별도 메시지가 없을 때 쓰인다. */
-fun DemoStep.simpleInstruction(): String {
+fun DemoStep.simpleInstruction(plan: DemoBookingPlan = DemoBookingPlan()): String {
     return when (this) {
         DemoStep.SELECT_DEPARTURE_FIELD -> "1단계. 출발역을 눌러 주세요."
-        DemoStep.INPUT_DEPARTURE -> "검색창을 눌러 주세요. 진주를 입력해 드릴게요."
-        DemoStep.SELECT_DEPARTURE_RESULT -> "검색 결과에서 진주역을 눌러 주세요."
+        DemoStep.INPUT_DEPARTURE -> "검색창을 눌러 주세요. ${plan.departureStation} 입력을 도와드릴게요."
+        DemoStep.SELECT_DEPARTURE_RESULT -> "검색 결과에서 ${plan.departureStation}역을 눌러 주세요."
         DemoStep.SELECT_ARRIVAL_FIELD -> "도착역을 눌러 주세요."
-        DemoStep.INPUT_ARRIVAL -> "검색창을 눌러 주세요. 서울을 입력해 드릴게요."
-        DemoStep.SELECT_ARRIVAL_RESULT -> "검색 결과에서 서울역을 눌러 주세요."
+        DemoStep.INPUT_ARRIVAL -> "검색창을 눌러 주세요. ${plan.arrivalStation} 입력을 도와드릴게요."
+        DemoStep.SELECT_ARRIVAL_RESULT -> "검색 결과에서 ${plan.arrivalStation}역을 눌러 주세요."
         DemoStep.SELECT_DATE_FIELD -> "가는 날을 눌러 주세요."
         DemoStep.SELECT_TOMORROW -> "달력에서 내일을 눌러 주세요."
         DemoStep.SELECT_TIME -> "출발 시간을 오전 6시 이후로 맞춰 주세요."

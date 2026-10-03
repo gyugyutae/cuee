@@ -4,25 +4,32 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.cuee.domain.scoring.Bounds
 
 class GuideControlOverlayController(
     private val context: Context,
     private val windowManager: WindowManager,
     private val onRepeat: () -> Unit,
     private val onBack: () -> Unit,
-    private val onStop: () -> Unit
+    private val onStop: () -> Unit,
+    private val onEdit: (() -> Unit)? = null
 ) {
     private var panel: LinearLayout? = null
     private var lastMessage: String? = null
+    private var lastTarget: Bounds? = null
+    private var lastPreferTop = false
 
-    fun show(message: String) {
-        if (message == lastMessage && panel != null) return
+    fun show(message: String, target: Bounds? = null, preferTop: Boolean = false) {
+        if (message == lastMessage && target == lastTarget && lastPreferTop == preferTop && panel != null) return
         hide()
         lastMessage = message
+        lastTarget = target
+        lastPreferTop = preferTop
 
         val screen = windowManager.screenBounds()
         val container = LinearLayout(context).apply {
@@ -49,18 +56,26 @@ class GuideControlOverlayController(
         actions.addView(actionButton("다시 듣기", onRepeat), actionParams())
         actions.addView(actionButton("이전", onBack), actionParams())
         actions.addView(actionButton("종료", onStop), actionParams())
+        onEdit?.let { actions.addView(actionButton("조건 수정", it), actionParams()) }
         container.addView(actions, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             topMargin = context.dp(10)
         })
 
+        val width = screen.width() - context.dp(24)
+        container.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val bottomY = (screen.height() - container.measuredHeight - context.dp(32)).coerceAtLeast(context.dp(12))
+        val panelY = if (preferTop || (target != null && target.bottom > bottomY - context.dp(12))) context.dp(48) else bottomY
         panel = container
         windowManager.addView(
             container,
             overlayParams(
-                width = screen.width() - context.dp(24),
+                width = width,
                 height = WindowManager.LayoutParams.WRAP_CONTENT,
                 x = context.dp(12),
-                y = (screen.height() - context.dp(180)).coerceAtLeast(context.dp(12)),
+                y = panelY,
                 touchable = true
             )
         )
@@ -70,6 +85,7 @@ class GuideControlOverlayController(
         panel?.let { runCatching { windowManager.removeView(it) } }
         panel = null
         lastMessage = null
+        lastTarget = null
     }
 
     private fun actionButton(label: String, action: () -> Unit): Button = Button(context).apply {

@@ -13,5 +13,7 @@ data class ScreenNode(
     val scrollable: Boolean,
     val editable: Boolean,
     val depth: Int,
-    val parentHint: String?
+    val parentHint: String?,
+    val checked: Boolean = false,
+    val selected: Boolean = false
 )
