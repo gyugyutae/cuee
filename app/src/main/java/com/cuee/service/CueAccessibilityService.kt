@@ -253,6 +253,9 @@ class CueAccessibilityService : AccessibilityService() {
                 if (utterance.isBlank()) return
                 debugLog("debug command received")
                 currentPackageName = KORAIL_PACKAGE
+                if (intent.getBooleanExtra("newJourney", false)) {
+                    JourneyHandoff.conversation = com.cuee.domain.command.JourneyConversation()
+                }
                 handleSpeechResult(utterance)
             }
         }
@@ -330,7 +333,7 @@ class CueAccessibilityService : AccessibilityService() {
             currentState = GuideState.GUIDING
             if (result.target != null) {
                 highlighter.show(listOf(result.target.bounds))
-                maskOverlay.hide()
+                maskOverlay.show(listOf(result.target.bounds))
             } else { highlighter.hide(); maskOverlay.hide() }
             val message = result.message ?: planner.routeSession.step.simpleInstruction(planner.routeSession.plan)
             val coveredAction = snapshot.nodes.firstOrNull {

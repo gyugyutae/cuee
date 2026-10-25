@@ -8,14 +8,13 @@ class TrainResultSelector(
     private val earliestHour: Int
 ) {
     fun select(snapshot: ScreenSnapshot): DemoGuideResult? {
-        val candidates = snapshot.nodes
+        val best = snapshot.nodes
             .filter { it.enabled && it.visible && it.bounds.isValid() }
             .filter { it.isSeatAction() }
             .mapNotNull { button -> candidateFor(snapshot, button) }
             .filter { it.excludedReason == null }
-            .sortedWith(compareBy<TrainCandidate> { it.rank }.thenBy { it.departureHour ?: 99 }.thenBy { it.bounds.top })
-
-        val best = candidates.firstOrNull() ?: return null
+            .minWithOrNull(compareBy<TrainCandidate> { it.rank }.thenBy { it.departureHour ?: 99 }.thenBy { it.bounds.top })
+            ?: return null
         return DemoGuideResult(
             target = DemoTarget(best.nodeId, best.bounds, best.label),
             message = MSG_CANDIDATE_FOUND,
@@ -40,9 +39,6 @@ class TrainResultSelector(
             nodeId = button.id,
             bounds = button.bounds,
             label = "${trainType.label} ${seatClass.label}",
-            trainType = trainType,
-            seatClass = seatClass,
-            arrivalStation = arrival,
             departureHour = departureHour,
             excludedReason = excluded,
             rank = rank(trainType, seatClass, arrival)
@@ -147,9 +143,6 @@ class TrainResultSelector(
         val nodeId: String,
         val bounds: Bounds,
         val label: String,
-        val trainType: TrainType,
-        val seatClass: SeatClass,
-        val arrivalStation: String?,
         val departureHour: Int?,
         val excludedReason: ExcludedReason?,
         val rank: Int

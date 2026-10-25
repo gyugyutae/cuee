@@ -127,7 +127,7 @@ class MaskOverlayController(
 
     private companion object {
         const val MASK_COLOR = 0x9907131D.toInt()
-        const val CANDIDATE_PADDING_DP = 72
+        const val CANDIDATE_PADDING_DP = 6
         const val CLOSE_SIZE_DP = 48
         const val CLOSE_MARGIN_DP = 16
     }

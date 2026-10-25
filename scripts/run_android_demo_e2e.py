@@ -89,20 +89,17 @@ class LogMonitor:
             targets = re.findall(r"journey target=(com\.korail\.talk:id/[A-Za-z0-9_]+)", current)
             if targets:
                 self.last_target = targets[-1]
-            if marker.startswith("journey target="):
-                target_id = re.escape(marker.removeprefix("journey target="))
-                pattern = rf"journey target={target_id} bounds=(-?\d+),(-?\d+),(-?\d+),(-?\d+)"
-                bounds = [
-                    match for match in re.finditer(pattern, current)
-                    if match.start() >= self.cursor and
-                    0 <= int(match.group(1)) < int(match.group(3)) <= 1080 and
-                    0 <= int(match.group(2)) < int(match.group(4)) <= 2340
-                ]
-                if bounds:
-                    self.cursor = bounds[-1].end()
-                    return tuple(map(int, bounds[-1].groups()))
             if len(current) < self.cursor:
                 self.cursor = 0
+            if marker.startswith("journey target="):
+                pattern = r"journey target=(none|com\.korail\.talk:id/[A-Za-z0-9_]+)(?: bounds=(-?\d+),(-?\d+),(-?\d+),(-?\d+))?"
+                events = list(re.finditer(pattern, current))
+                latest = events[-1] if events else None
+                if latest and latest.start() >= self.cursor and latest.group(1) == marker.removeprefix("journey target=") and latest.group(2) is not None:
+                    left, top, right, bottom = map(int, latest.groups()[1:])
+                    if 0 <= left < right <= 1080 and 0 <= top < bottom <= 2340:
+                        self.cursor = latest.end()
+                        return left, top, right, bottom
             index = current.find(marker, self.cursor)
             if not marker.startswith("journey target=") and index >= 0:
                 self.cursor = index + len(marker)
@@ -149,6 +146,7 @@ def tap_guided_target(adb_path: str, serial: str, monitor: LogMonitor, resource_
     left, top, right, bottom = bounds
     time.sleep(1.25)
     x, y = (left + right) // 2, (top + bottom) // 2
+    print(f"Mock tap: {resource_id} at ({x}, {y})", flush=True)
     tap(adb_path, serial, x, y)
 
 
@@ -165,7 +163,7 @@ def run_scenario(
 
     shell(
         adb_path, serial, "am", "broadcast", "-a", "com.cuee.DEBUG_COMMAND",
-        "-p", "com.cuee", "--es", "utterance", utterance,
+        "-p", "com.cuee", "--es", "utterance", utterance, "--ez", "newJourney", "true",
     )
     wait_for_activity(adb_path, serial, "com.cuee/.ui.JourneyActivity")
     monitor = LogMonitor(adb_path, serial)
@@ -189,13 +187,12 @@ def run_scenario(
         "com.korail.talk:id/date_cell_tomorrow",
         f"com.korail.talk:id/{hour_target}",
         "com.korail.talk:id/confirm_button",
-        "com.korail.talk:id/tv_value_passenger",
     ]
-    steps.extend(passenger_adjustments)
-    steps.extend([
-        "com.korail.talk:id/passenger_confirm",
-        "com.korail.talk:id/search_trains",
-    ])
+    if passenger_adjustments:
+        steps.append("com.korail.talk:id/tv_value_passenger")
+        steps.extend(passenger_adjustments)
+        steps.append("com.korail.talk:id/passenger_confirm")
+    steps.append("com.korail.talk:id/search_trains")
     for resource_id in steps:
         tap_guided_target(adb_path, serial, monitor, resource_id)
 

@@ -45,7 +45,7 @@ class KorailTargetScorer : TargetScorer {
         if (positionHintMatched) score += HINT_SCORE
 
         if (!textMatched && text.orEmpty().isNotBlank()) score -= GENERAL_TEXT_PENALTY
-        if (text.orEmpty().normalizeForScoring().length > LONG_TEXT_THRESHOLD) {
+        if (normalizedText.length > LONG_TEXT_THRESHOLD) {
             score -= LONG_TEXT_PENALTY
         }
 
