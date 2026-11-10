@@ -1,0 +1,42 @@
+/* Cuee 안내 오버레이 공용 — 코레일톡 화면 모형 위에 얹는 안내 띠·초록 테두리. 토큰만 쓴다. */
+body.guide { background: var(--c-bg); }
+
+/* 위쪽 안내 띠(시장 관례 M6: 길 안내 중 상단 띠에 다음 행동을 크게) */
+.cue-band { position: sticky; top: 0; z-index: 30; background: var(--c-surface); box-shadow: var(--shadow-2);
+  padding: var(--stack-m) var(--page-x) var(--stack-m); display: grid; gap: var(--stack-s); }
+.cue-band-top { display: flex; align-items: flex-start; gap: var(--stack-s); }
+.cue-step { flex: none; font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: var(--fw-strong);
+  color: var(--c-text-2); padding-top: 4px; min-width: 40px; }
+.cue-msg { flex: 1; margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--fw-title); color: var(--c-text-1); word-break: keep-all; }
+.cue-stop { flex: none; min-width: 48px; justify-content: center; font-size: var(--fs-sub); color: var(--c-text-2); text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.cue-sub { margin: 0; font-size: var(--fs-sub); line-height: var(--lh-sub); color: var(--c-text-2); word-break: keep-all; }
+.cue-voice { margin: 0; display: flex; gap: var(--stack-s); align-items: flex-start; font-size: var(--fs-sub); line-height: var(--lh-sub);
+  color: var(--c-success-tint-text); background: var(--c-success-tint); border-radius: var(--r-m); padding: var(--stack-s) var(--stack-m); word-break: keep-all; }
+.cue-voice svg { flex: none; width: 20px; height: 20px; margin-top: 2px; }
+.cue-safe { color: var(--c-brand-tint-text); background: var(--c-brand-tint); }
+
+/* 코레일톡 화면 모형 — 로고·브랜드 없이 단순하게 */
+.mock { position: relative; padding-bottom: 96px; }
+.mock-bar { display: flex; align-items: center; justify-content: space-between; height: var(--h-appbar);
+  padding: 0 var(--page-x); background: var(--c-surface); border-bottom: 1px solid var(--c-line); }
+.mock-app { font-size: var(--fs-caption); color: var(--c-text-3); }
+.mock-title { margin: 0; font-size: var(--fs-strong); font-weight: var(--fw-strong); color: var(--c-text-1); }
+.mock-field { display: block; background: var(--c-surface); border: 1px solid var(--c-line-strong); border-radius: var(--r-m);
+  padding: var(--stack-m); text-decoration: none; color: var(--c-text-1); }
+.mock-label { display: block; font-size: var(--fs-caption); color: var(--c-text-3); }
+.mock-value { display: block; font-size: var(--fs-strong); font-weight: var(--fw-strong); color: var(--c-text-1); }
+.mock-value.is-empty { color: var(--c-text-3); font-weight: var(--fw-body); }
+.mock-pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--stack-s); align-items: center; }
+.mock-btn { display: flex; align-items: center; justify-content: center; height: var(--h-btn); border-radius: var(--r-m);
+  background: var(--c-text-2); color: var(--c-surface); font-weight: var(--fw-strong); text-decoration: none; border: 0; width: 100%; font-size: var(--fs-body); }
+
+/* Cuee가 가리키는 곳 하나 — 초록 테두리 + 나머지 어둡게(PRD: green border/mask highlight) */
+.cue-target { position: relative; z-index: 20; border-radius: var(--r-m);
+  box-shadow: 0 0 0 4px var(--c-success), 0 0 0 2000px var(--c-overlay); }
+.cue-tag { position: absolute; z-index: 21; right: 8px; top: -14px; background: var(--c-success); color: var(--c-on-brand);
+  font-size: var(--fs-caption); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 2px 10px; white-space: nowrap; }
+.cue-done { color: var(--c-success-tint-text); }
+
+body.guide .cta { z-index: 31; }
+.chip.is-selected .mock-label, .chip.is-selected .mock-value { color: inherit; }
+.mock .field-msg { color: var(--c-danger-tint-text); }

@@ -1,0 +1,158 @@
+{
+ "mode": "brief",
+ "items": [
+  {
+   "id": "S1",
+   "kind": "screen",
+   "name": "코레일톡 홈 승차권 예매 화면",
+   "quote": "Start screen: KorailTalk home ticket-booking screen",
+   "covered_by": [
+    "guide-departure",
+    "guide-search"
+   ]
+  },
+  {
+   "id": "S2",
+   "kind": "screen",
+   "name": "역 검색 화면",
+   "quote": "Departure/arrival station reset and station search guidance.",
+   "covered_by": [
+    "guide-station"
+   ]
+  },
+  {
+   "id": "S3",
+   "kind": "screen",
+   "name": "열차 조회 결과 화면",
+   "quote": "Current visible result-screen candidate analysis only; no automatic result-list scrolling for MVP.",
+   "covered_by": [
+    "guide-results",
+    "guide-fallback"
+   ]
+  },
+  {
+   "id": "S4",
+   "kind": "screen",
+   "name": "결제/발권 및 결제 진입 화면",
+   "quote": "End: guide through `예매` -> `결제/발권` -> safe final `확인` if shown; then highlight payment entry and stop",
+   "covered_by": [
+    "guide-checkout",
+    "guide-payment"
+   ]
+  },
+  {
+   "id": "P1",
+   "kind": "step",
+   "name": "출발역 진주 입력",
+   "quote": "Real KorailTalk home screen produces departure-field guidance.",
+   "covered_by": [
+    "guide-departure",
+    "guide-station"
+   ]
+  },
+  {
+   "id": "P2",
+   "kind": "step",
+   "name": "도착역 서울 입력",
+   "quote": "Automatic text input attempt for `진주` and `서울`; fallback to search-field highlight.",
+   "covered_by": [
+    "guide-station"
+   ]
+  },
+  {
+   "id": "P3",
+   "kind": "step",
+   "name": "날짜·시간·인원 설정 (내일, 06:00, 어른 2, 어린이 1)",
+   "quote": "Guided setup for tomorrow, 06:00, adult 2, and child 1.",
+   "covered_by": [
+    "guide-date",
+    "guide-passengers"
+   ]
+  },
+  {
+   "id": "P4",
+   "kind": "step",
+   "name": "열차 조회 및 추천 후보 하이라이트",
+   "quote": "Train search and recommendation guidance using direct-bookability and route-fit rules.",
+   "covered_by": [
+    "guide-search",
+    "guide-results"
+   ]
+  },
+  {
+   "id": "P5",
+   "kind": "step",
+   "name": "예매 → 결제/발권 → 확인",
+   "quote": "End: guide through `예매` -> `결제/발권` -> safe final `확인` if shown; then highlight payment entry and stop",
+   "covered_by": [
+    "guide-reserve",
+    "guide-checkout"
+   ]
+  },
+  {
+   "id": "P6",
+   "kind": "step",
+   "name": "결제하기 하이라이트 후 안전 정지",
+   "quote": "`결제하기` is highlighted with: `결제하기 버튼이에요. 결제는 직접 확인해 주세요.`",
+   "covered_by": [
+    "guide-payment"
+   ]
+  },
+  {
+   "id": "R1",
+   "kind": "rule",
+   "name": "역 입력 자동 채우기 실패 시 검색 필드 하이라이트로 대체",
+   "quote": "Station search auto-fill is attempted and falls back safely when unavailable.",
+   "screen_hint": "S2",
+   "state_hint": "error",
+   "policy": "guide-station"
+  },
+  {
+   "id": "R2",
+   "kind": "rule",
+   "name": "후보 없음 시 내일 종일 → 모레 06:00 → 모레 종일 재검색",
+   "quote": "Automatic fallback search to tomorrow all day, following day 06:00, then following day all day.",
+   "screen_hint": "S3",
+   "state_hint": "error",
+   "policy": "guide-fallback"
+  },
+  {
+   "id": "R3",
+   "kind": "rule",
+   "name": "매진·예약대기·예약링크·-·외부 링크 후보 제외",
+   "quote": "Visible result candidates exclude `매진`, `예약대기`, `예약링크`, `-`, and external-link flows.",
+   "screen_hint": "S3",
+   "state_hint": "error",
+   "policy": "guide-results"
+  },
+  {
+   "id": "R4",
+   "kind": "rule",
+   "name": "후보가 없으면 친절한 다음 행동 안내",
+   "quote": "No candidate produces a friendly, non-broken next-action message.",
+   "screen_hint": "S3",
+   "state_hint": "error",
+   "policy": "guide-fallback"
+  },
+  {
+   "id": "R5",
+   "kind": "rule",
+   "name": "결제는 직접 확인 — 결제 진입에서 정지",
+   "quote": "`결제하기` is highlighted with: `결제하기 버튼이에요. 결제는 직접 확인해 주세요.`",
+   "screen_hint": "S4",
+   "state_hint": "confirm",
+   "policy": "guide-payment"
+  }
+ ],
+ "objects": [
+  {
+   "id": "O1",
+   "name": "승차권 예매 (진주→서울)",
+   "quote": "Cuee is an Android accessibility guide for KorailTalk.",
+   "create": "home",
+   "view": "guide-departure",
+   "edit": "guide-stop",
+   "after": "guide-payment"
+  }
+ ]
+}

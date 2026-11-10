@@ -50,7 +50,7 @@ class BubbleOverlayController(
             textSize = 20f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            background = circle(CUE_GREEN)
+            background = circle(CUE_BRAND)
             elevation = context.dp(8).toFloat()
             contentDescription = "큐 음성 안내 시작"
             setOnClickListener { onTap() }
@@ -79,7 +79,7 @@ class BubbleOverlayController(
         if (listening) {
             if (listeningAnimator?.isStarted == true) return
             view.text = ""
-            view.background = circle(CUE_GREEN)
+            view.background = circle(CUE_BRAND)
             val pulseX = ObjectAnimator.ofFloat(view, "scaleX", 1.0f, 1.22f).apply {
                 repeatMode = ValueAnimator.REVERSE
                 repeatCount = ValueAnimator.INFINITE
@@ -105,7 +105,7 @@ class BubbleOverlayController(
             view.scaleX = 1.0f
             view.scaleY = 1.0f
             view.alpha = 1.0f
-            view.background = circle(CUE_GREEN)
+            view.background = circle(CUE_BRAND)
         }
     }
 

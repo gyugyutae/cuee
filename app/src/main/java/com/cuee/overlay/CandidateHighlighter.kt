@@ -47,7 +47,7 @@ class CandidateHighlighter(
     private fun addStrip(bounds: Bounds) {
         if (!bounds.isValid()) return
         val view = View(context).apply {
-            setBackgroundColor(CUE_GREEN)
+            setBackgroundColor(CUE_HIGHLIGHT)
             alpha = 0.95f
         }
         borderViews += view
@@ -73,7 +73,7 @@ class CandidateHighlighter(
     }
 
     private companion object {
-        const val BORDER_THICKNESS_DP = 2
+        const val BORDER_THICKNESS_DP = 4
         const val MAX_HIGHLIGHTS = 3
     }
 }

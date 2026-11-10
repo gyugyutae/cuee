@@ -1,7 +1,6 @@
 package com.cuee.overlay
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
@@ -36,7 +35,7 @@ class GuideControlOverlayController(
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(context.dp(16), context.dp(12), context.dp(16), context.dp(12))
-            background = rounded(Color.WHITE, context.dp(16))
+            background = rounded(CUE_SURFACE, context.dp(8))
             elevation = context.dp(12).toFloat()
             contentDescription = "큐 안내 조작"
         }
@@ -44,7 +43,7 @@ class GuideControlOverlayController(
             text = message
             textSize = 20f
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(0xFF111111.toInt())
+            setTextColor(CUE_TEXT)
             gravity = Gravity.CENTER
             setLineSpacing(0f, 1.15f)
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
@@ -93,9 +92,15 @@ class GuideControlOverlayController(
         textSize = 17f
         isAllCaps = false
         minHeight = context.dp(52)
-        setTextColor(Color.WHITE)
-        setBackgroundColor(if (label == "종료") 0xFF7F1D1D.toInt() else CUE_GREEN)
+        stateListAnimator = null
+        // 종료는 위험 색 글자, 나머지는 옅은 브랜드 바탕 — 채운 브랜드 버튼은 화면의 주 행동에만.
+        setTextColor(if (label == "종료") CUE_DANGER else CUE_BRAND)
+        background = rounded(if (label == "종료") DANGER_TINT else CUE_TINT, context.dp(6))
         setOnClickListener { action() }
+    }
+
+    private companion object {
+        const val DANGER_TINT = 0xFFFCEFF0.toInt()
     }
 
     private fun actionParams() = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {

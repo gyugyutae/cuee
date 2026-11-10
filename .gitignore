@@ -30,3 +30,8 @@ artifacts/screenshots/cuee-*-command.png
 artifacts/screenshots/cuee-e2e-*.png
 tasks/*/phase*-output.json
 tasks/*/phase*-last-message.txt
+
+# k-style-ui-ux 캔버스: 다른 앱 스토어 자료와 검사용 캡처는 올리지 않는다
+out/market/
+out/.shots/
+out/.cands/

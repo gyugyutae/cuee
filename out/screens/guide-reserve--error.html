@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=375, initial-scale=1">
+<title>9 · 오류 · 좌석이 팔림</title>
+<link id="tokens" rel="stylesheet" href="../tokens.css"><link rel="stylesheet" href="../components.css"><link rel="stylesheet" href="../guide.css"><script src="../palette.js"></script>
+</head>
+<body class="text-large guide">
+<header class="cue-band" role="status" aria-live="polite">
+  <div class="cue-band-top"><span class="cue-step">9/11</span><h1 class="cue-msg">확인을 누르고 다른 열차를 골라요</h1><a class="cue-stop" href="guide-stop.html">멈추기</a></div>
+  <div class="progress" role="progressbar" aria-valuenow="9" aria-valuemax="11"><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span><span></span><span></span></div>
+  <p class="cue-voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/></svg><span>"방금 그 자리가 팔렸어요. 확인을 누르면 다른 열차를 찾아 드릴게요"</span></p>
+</header>
+<main class="mock" aria-label="코레일톡 화면">
+  <div class="mock-bar"><p class="mock-title">승차권 확인</p><span class="mock-app">코레일톡</span></div>
+  <div class="page">
+    <section class="block">
+      <p class="row-title">KTX 404 · 11월 7일 (토)</p>
+      <p class="row-title">06:30 진주 → 10:05 서울</p>
+      <p class="row-sub">일반실 · 3시간 35분</p>
+    </section>
+    <section class="block is-list">
+      <div class="row"><div class="row-main"><p class="row-title">어른 52,600원 × 2</p></div><div class="row-trail"><span class="num">105,200원</span></div></div>
+      <div class="row"><div class="row-main"><p class="row-title">어린이 26,300원 × 1</p></div><div class="row-trail"><span class="num">26,300원</span></div></div>
+      <div class="row"><div class="row-main"><p class="row-title">합계</p></div><div class="row-trail"><span class="num">131,500원</span></div></div>
+    </section>
+    <div class="mock-btn">예매</div>
+    <section class="block" role="alertdialog" aria-label="코레일톡 알림">
+      <p class="row-title">선택한 좌석이 이미 팔렸어요</p>
+      <a class="mock-btn cue-target" href="guide-results.html">확인<span class="cue-tag">여기</span></a>
+    </section>
+  </div>
+</main>
+</body></html>

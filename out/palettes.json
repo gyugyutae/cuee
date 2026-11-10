@@ -1,0 +1,34 @@
+{
+ "default": "seed-goodoc",
+ "options": [
+  {
+   "slug": "seed-goodoc",
+   "name": "굿닥",
+   "brand": "#0462D1",
+   "source": "브랜드 시드(https://www.goodoc.co.kr)",
+   "why": [
+    "라이브러리에 맞는 도메인이 없어 시드로 만듦",
+    "성격(신뢰,차분)",
+    "감정 온도"
+   ]
+  },
+  {
+   "slug": "seed-oliveyoung",
+   "name": "올리브영",
+   "brand": "#779F1D",
+   "source": "브랜드 시드(https://www.oliveyoung.co.kr)",
+   "why": [
+    "성격(생활,차분)"
+   ]
+  },
+  {
+   "slug": "seed-soomgo",
+   "name": "숨고",
+   "brand": "#693BF2",
+   "source": "브랜드 시드(https://soomgo.com)",
+   "why": [
+    "감정 온도"
+   ]
+  }
+ ]
+}

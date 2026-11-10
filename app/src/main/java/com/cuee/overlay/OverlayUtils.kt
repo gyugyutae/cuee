@@ -8,7 +8,15 @@ import android.view.Gravity
 import android.view.WindowManager
 import com.cuee.domain.scoring.Bounds
 
-const val CUE_GREEN = 0xFF2F9E44.toInt()
+// 굿닥 파랑 팔레트(out/ 캔버스 seed-goodoc 토큰). 브랜드 색은 버튼·큐 버튼, 누를 곳 테두리는 초록.
+const val CUE_BRAND = 0xFF0462D1.toInt()
+const val CUE_HIGHLIGHT = 0xFF1A8347.toInt()
+const val CUE_SURFACE = 0xFFFEFEFE.toInt()
+const val CUE_TEXT = 0xFF1A2128.toInt()
+const val CUE_TEXT_SUB = 0xFF485360.toInt()
+const val CUE_TINT = 0xFFE5EEF9.toInt()
+const val CUE_LINE = 0xFFE5E9ED.toInt()
+const val CUE_DANGER = 0xFFD61E24.toInt()
 
 fun Context.dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
